@@ -1,0 +1,418 @@
+'use client'
+
+import { useState, useTransition } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
+import { ShoppingCart, Calendar, Search, ShieldAlert, Trash2, Loader2, Eye } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { formatCurrency } from '@/lib/utils'
+import { voidSale } from '@/app/actions/sales'
+import { toast } from 'sonner'
+import { ExportButton } from '@/components/shared/export-button'
+
+const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+  completed: { label: 'Completada', variant: 'default' },
+  pending: { label: 'Pendiente', variant: 'secondary' },
+  cancelled: { label: 'Cancelada', variant: 'destructive' },
+  partial: { label: 'Parcial', variant: 'outline' },
+}
+
+interface Sale {
+  id: string
+  sale_number: string
+  status: string
+  subtotal: number
+  discount_amount: number
+  total: number
+  amount_paid: number
+  amount_pending: number
+  notes: string | null
+  created_at: string
+  completed_at: string | null
+  customer: {
+    name: string
+  } | null
+  register: {
+    name: string
+  } | null
+  sale_items: Array<{
+    id: string
+    quantity: number
+    unit_price: number
+    total: number
+  }>
+  payments?: Array<{
+    method: string
+    amount: number
+  }> | null
+  cajero?: {
+    full_name: string
+  } | null
+}
+
+interface SalesListClientProps {
+  initialSales: Sale[]
+  isAdmin?: boolean
+}
+
+export function SalesListClient({ initialSales, isAdmin = false }: SalesListClientProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [isPending, startTransition] = useTransition()
+
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+
+  // Date Range inputs initialized from URL params
+  const [startDate, setStartDate] = useState(searchParams.get('startDate') || '')
+  const [endDate, setEndDate] = useState(searchParams.get('endDate') || '')
+
+  function handleFilterDates() {
+    const params = new URLSearchParams(searchParams.toString())
+    if (startDate) {
+      params.set('startDate', startDate)
+    } else {
+      params.delete('startDate')
+    }
+    if (endDate) {
+      params.set('endDate', endDate)
+    } else {
+      params.delete('endDate')
+    }
+    router.push(`/ventas/historial?${params.toString()}`)
+  }
+
+  function handleClearDates() {
+    setStartDate('')
+    setEndDate('')
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete('startDate')
+    params.delete('endDate')
+    router.push(`/ventas/historial?${params.toString()}`)
+  }
+
+  const filteredSales = initialSales.filter((s) => {
+    // 1. Text Search
+    const searchLower = search.toLowerCase()
+    const matchesSearch =
+      s.sale_number.toLowerCase().includes(searchLower) ||
+      (s.customer?.name || 'cliente general').toLowerCase().includes(searchLower) ||
+      (s.notes || '').toLowerCase().includes(searchLower)
+
+    // 2. Status Filter
+    const matchesStatus = statusFilter === 'all' || s.status === statusFilter
+
+    return matchesSearch && matchesStatus
+  })
+
+  const handleExportExcel = async () => {
+    const { exportToExcel } = await import('@/lib/export-utils')
+    const rows = filteredSales.map((s) => ({
+      'N° venta': s.sale_number,
+      fecha: new Date(s.created_at).toLocaleDateString('es-HN', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      }),
+      cajero: s.cajero?.full_name || s.register?.name || 'Cajero',
+      cliente: s.customer?.name || 'Cliente General',
+      total: Number(s.total),
+      'método de pago': s.payments && s.payments.length > 0
+        ? s.payments.map((p) => p.method === 'cash' ? 'Efectivo' : 'Tarjeta').join(' + ')
+        : 'Efectivo',
+      estado: s.status === 'completed' ? 'Completada' : s.status === 'cancelled' ? 'Cancelada' : s.status,
+    }))
+    await exportToExcel(rows, `Ventas_${new Date().toISOString().slice(0, 10)}.xlsx`, 'Ventas')
+  }
+
+  const handleExportPDF = async () => {
+    const { exportSalesPDF } = await import('@/lib/export-utils')
+    const rows = filteredSales.map((s) => ({
+      'N° venta': s.sale_number,
+      fecha: new Date(s.created_at).toLocaleDateString('es-HN', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+      }),
+      cajero: s.cajero?.full_name || s.register?.name || 'Cajero',
+      cliente: s.customer?.name || 'Cliente General',
+      total: Number(s.total),
+      'método de pago': s.payments && s.payments.length > 0
+        ? s.payments.map((p) => p.method === 'cash' ? 'Efectivo' : 'Tarjeta').join(' + ')
+        : 'Efectivo',
+      estado: s.status === 'completed' ? 'Completada' : s.status === 'cancelled' ? 'Cancelada' : s.status,
+    }))
+
+    const totalRevenue = filteredSales
+      .filter((s) => s.status === 'completed')
+      .reduce((sum, s) => sum + Number(s.total), 0)
+
+    const dateRange = startDate && endDate
+      ? `Desde ${startDate} hasta ${endDate}`
+      : startDate
+      ? `Desde ${startDate}`
+      : endDate
+      ? `Hasta ${endDate}`
+      : 'Todo el historial'
+
+    await exportSalesPDF(rows, {
+      totalVentas: totalRevenue,
+      cantidadVentas: filteredSales.length,
+      dateRange,
+    })
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <CardTitle className="flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5" />
+              Todas las Ventas ({filteredSales.length})
+            </CardTitle>
+
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+              <ExportButton onExportExcel={handleExportExcel} onExportPDF={handleExportPDF} />
+              {/* Reference Search */}
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Buscar nro venta, cliente..."
+                  className="pl-8"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+
+              {/* Status Filter */}
+              <Select
+                value={statusFilter}
+                onValueChange={(val) => setStatusFilter(val || 'all')}
+              >
+                <SelectTrigger className="w-full sm:w-44">
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los estados</SelectItem>
+                  {Object.entries(STATUS_MAP).map(([key, value]) => (
+                    <SelectItem key={key} value={key}>
+                      {value.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Date range filter server-side */}
+          <div className="flex flex-wrap items-center gap-3 bg-secondary/20 p-3.5 border rounded-lg text-sm">
+            <span className="font-medium text-muted-foreground shrink-0">Filtrar Fecha Venta (Server):</span>
+            <div className="flex items-center gap-2">
+              <Input
+                type="date"
+                className="w-36 h-9"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+              <span className="text-muted-foreground">a</span>
+              <Input
+                type="date"
+                className="w-36 h-9"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-2 ml-auto sm:ml-0">
+              <Button size="sm" onClick={handleFilterDates}>
+                Aplicar
+              </Button>
+              {(startDate || endDate) && (
+                <Button size="sm" variant="ghost" onClick={handleClearDates}>
+                  Limpiar
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {filteredSales.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-48 text-muted-foreground gap-3">
+            <ShoppingCart className="h-10 w-10 opacity-20" />
+            <p>
+              {search || statusFilter !== 'all' || startDate || endDate
+                ? 'No se encontraron ventas con los filtros aplicados'
+                : 'No hay ventas registradas todavía'}
+            </p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nro. Venta</TableHead>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Caja</TableHead>
+                <TableHead className="text-center">Ítems</TableHead>
+                <TableHead className="text-right">Subtotal</TableHead>
+                <TableHead className="text-right">Desc.</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="text-right">Pendiente</TableHead>
+                <TableHead>Estado</TableHead>
+                {isAdmin && <TableHead className="text-right">Acciones</TableHead>}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredSales.map((s) => {
+                const status = STATUS_MAP[s.status] || {
+                  label: s.status,
+                  variant: 'outline' as const,
+                }
+                return (
+                  <TableRow key={s.id} className={s.status === 'cancelled' ? 'opacity-60 bg-muted/20' : ''}>
+                    <TableCell className={`font-mono text-xs font-semibold ${s.status === 'cancelled' ? 'line-through' : ''}`}>
+                      <Link
+                        href={`/ventas/historial/${s.id}`}
+                        className="flex items-center gap-1 hover:text-primary transition-colors"
+                        title="Ver detalle de venta"
+                      >
+                        {s.sale_number}
+                        <Eye className="h-3 w-3 opacity-40 group-hover:opacity-100" />
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {new Date(s.created_at).toLocaleDateString('es', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {s.customer?.name || 'Cliente General'}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {s.register?.name}
+                    </TableCell>
+                    <TableCell className="text-center text-sm">
+                      {s.sale_items?.reduce((sum, item) => sum + item.quantity, 0) || 0}
+                    </TableCell>
+                    <TableCell className="text-right text-sm">
+                      {formatCurrency(Number(s.subtotal))}
+                    </TableCell>
+                    <TableCell className="text-right text-sm text-destructive">
+                      {Number(s.discount_amount) > 0
+                        ? `-${formatCurrency(Number(s.discount_amount))}`
+                        : '—'}
+                    </TableCell>
+                    <TableCell className="text-right font-bold">
+                      {formatCurrency(Number(s.total))}
+                    </TableCell>
+                    <TableCell
+                      className={`text-right text-sm font-medium ${
+                        Number(s.amount_pending) > 0
+                          ? 'text-warning'
+                          : 'text-muted-foreground'
+                      }`}
+                    >
+                      {Number(s.amount_pending) > 0
+                        ? formatCurrency(Number(s.amount_pending))
+                        : '—'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={status.variant}>{status.label}</Badge>
+                    </TableCell>
+                    {isAdmin && (
+                      <TableCell className="text-right">
+                        {s.status !== 'cancelled' ? (
+                          <AlertDialog>
+                            <AlertDialogTrigger
+                              render={
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-destructive hover:bg-destructive/10"
+                                  disabled={isPending}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              }
+                            />
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                                  <ShieldAlert className="h-5 w-5" />
+                                  ¿Anular Venta {s.sale_number}?
+                                </AlertDialogTitle>
+                                <AlertDialogDescription render={<div />} className="space-y-2 text-sm text-muted-foreground">
+                                  <p>
+                                    Esta acción es irreversible y realizará las siguientes operaciones:
+                                  </p>
+                                  <ul className="list-disc list-inside text-xs space-y-1 bg-secondary/35 p-3.5 border rounded-lg font-sans">
+                                    <li>Marcará el estado de la venta como <strong>Cancelada</strong>.</li>
+                                    <li>Reincorporará los {s.sale_items?.reduce((sum, item) => sum + item.quantity, 0)} pares al stock físico disponible.</li>
+                                    <li>Registrará el movimiento de reversión en el historial de inventario.</li>
+                                    <li>Si se pagó en efectivo, restará el monto total de la caja del día.</li>
+                                  </ul>
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => {
+                                    startTransition(async () => {
+                                      const res = await voidSale(s.id)
+                                      if (res?.error) {
+                                        toast.error(res.error)
+                                      } else {
+                                        toast.success(`Venta ${s.sale_number} anulada correctamente y stock restaurado.`)
+                                        router.refresh()
+                                      }
+                                    })
+                                  }}
+                                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                                >
+                                  {isPending ? (
+                                    <>
+                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                      Anulando...
+                                    </>
+                                  ) : (
+                                    'Anular Venta'
+                                  )}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">Anulada</span>
+                        )}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  )
+}

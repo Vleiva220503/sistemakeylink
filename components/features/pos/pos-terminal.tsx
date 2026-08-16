@@ -1,0 +1,392 @@
+'use client'
+
+import { useState, useMemo } from 'react'
+import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, Receipt, ChevronDown } from 'lucide-react'
+import { toast } from 'sonner'
+
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { createSale } from '@/app/actions/sales'
+import { formatCurrency } from '@/lib/utils'
+import { SafeImage } from '@/components/shared/safe-image'
+import { resolveProductImage } from '@/lib/resolve-product-image'
+import type { InvoiceData } from '@/lib/generate-invoice-pdf'
+
+// Real types from Supabase schema
+export type PosVariant = {
+  id: string              // variant_id
+  sku: string
+  size: string | null
+  color: string | null
+  quality: string | null
+  price_override: number | null
+  stock_quantity: number
+  product: {
+    id: string
+    name: string
+    sku: string
+    base_price: number
+    brand?: { name: string; logo_url?: string | null } | null
+    category?: { name: string } | null
+    product_images?: { url: string; is_primary: boolean; sort_order: number }[]
+  }
+}
+
+type CartItem = {
+  variant_id: string
+  name: string           // product name + size/color
+  sku: string
+  price: number          // effective price: price_override ?? base_price
+  stock: number
+  quantity: number
+}
+
+interface PosTerminalProps {
+  registerId: string
+  registerName: string
+  variants: PosVariant[]
+}
+
+function getEffectivePrice(v: PosVariant): number {
+  return v.price_override ?? v.product?.base_price ?? 0
+}
+
+function getVariantLabel(v: PosVariant): string {
+  const parts = [v.product?.name]
+  if (v.size) parts.push(`T: ${v.size}`)
+  if (v.color) parts.push(v.color)
+  if (v.quality) parts.push(v.quality)
+  return parts.filter(Boolean).join(' — ')
+}
+
+export function PosTerminal({ registerId, registerName, variants }: PosTerminalProps) {
+  const [searchQuery, setSearchQuery] = useState('')
+  const [cart, setCart] = useState<CartItem[]>([])
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash')
+
+  const filteredVariants = useMemo(() => {
+    if (!searchQuery.trim()) return variants
+    const q = searchQuery.toLowerCase()
+    return variants.filter(v =>
+      v.product?.name?.toLowerCase().includes(q) ||
+      v.sku?.toLowerCase().includes(q) ||
+      v.product?.sku?.toLowerCase().includes(q) ||
+      v.size?.toLowerCase().includes(q) ||
+      v.color?.toLowerCase().includes(q) ||
+      v.product?.brand?.name?.toLowerCase().includes(q)
+    )
+  }, [searchQuery, variants])
+
+  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+  const total = subtotal // No tax hardcoded — real stores set tax separately
+
+  const addToCart = (variant: PosVariant) => {
+    const price = getEffectivePrice(variant)
+    setCart(prev => {
+      const existing = prev.find(item => item.variant_id === variant.id)
+      if (existing) {
+        if (existing.quantity >= variant.stock_quantity) {
+          toast.error(`Stock insuficiente. Disponible: ${variant.stock_quantity} pares`)
+          return prev
+        }
+        return prev.map(item =>
+          item.variant_id === variant.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        )
+      }
+      return [...prev, {
+        variant_id: variant.id,
+        name: getVariantLabel(variant),
+        sku: variant.sku,
+        price,
+        stock: variant.stock_quantity,
+        quantity: 1
+      }]
+    })
+    toast.success(`${variant.product?.name} agregado al carrito`, { duration: 1500 })
+  }
+
+  const updateQuantity = (variantId: string, delta: number) => {
+    setCart(prev => prev
+      .map(item => {
+        if (item.variant_id !== variantId) return item
+        const newQ = item.quantity + delta
+        if (newQ < 1) return item
+        if (newQ > item.stock) {
+          toast.error(`Stock máximo disponible: ${item.stock} pares`)
+          return item
+        }
+        return { ...item, quantity: newQ }
+      })
+    )
+  }
+
+  const removeFromCart = (variantId: string) => {
+    setCart(prev => prev.filter(item => item.variant_id !== variantId))
+  }
+
+  const handleCheckout = async () => {
+    if (cart.length === 0) return
+
+    // Snapshot cart before clearing it
+    const cartSnapshot = [...cart]
+    const totalSnapshot = total
+
+    setIsProcessing(true)
+    try {
+      const result = await createSale({
+        register_id: registerId,
+        items: cartSnapshot.map(item => ({
+          variant_id: item.variant_id,
+          quantity: item.quantity,
+          unit_price: item.price,
+          discount_amount: 0
+        })),
+        payments: [{
+          amount: totalSnapshot,
+          method: paymentMethod === 'cash' ? 'cash' : 'card',
+          reference: null
+        }],
+        discount_amount: 0,
+        discount_type: null,
+        notes: null
+      })
+
+      if (result.error) {
+        toast.error(`Error: ${result.error}`)
+      } else {
+        toast.success('¡Venta procesada! Generando factura PDF...', { duration: 3000 })
+        setCart([])
+        setSearchQuery('')
+
+        // Auto-generate and download the A4 invoice PDF
+        try {
+          const { generateInvoicePDF } = await import('@/lib/generate-invoice-pdf')
+          const invoiceData: InvoiceData = {
+            saleNumber: result.saleNumber ?? result.saleId ?? 'N/A',
+            date: new Date(),
+            registerName,
+            cashierName: 'Cajero',  // No user name available in client; can be enhanced later
+            paymentMethod,
+            items: cartSnapshot.map(item => ({
+              name: item.name,
+              sku: item.sku,
+              quantity: item.quantity,
+              unitPrice: item.price,
+              discount: 0,
+            })),
+            subtotal: totalSnapshot,
+            discountTotal: 0,
+            total: totalSnapshot,
+          }
+          await generateInvoicePDF(invoiceData)
+        } catch (pdfErr) {
+          console.error('Error al generar PDF de factura:', pdfErr)
+          toast.error('Venta guardada, pero falló la generación del PDF.')
+        }
+      }
+    } catch (error: any) {
+      toast.error('Error inesperado al procesar la venta')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-160px)]">
+      
+      {/* Left: Product Catalog */}
+      <Card className="lg:col-span-2 flex flex-col h-full border-border bg-card">
+        <CardHeader className="pb-3 border-b border-border bg-background/50">
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nombre, talla, color, SKU o marca..."
+              className="pl-11 h-12 text-sm font-sans bg-background border-border focus-visible:border-primary"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <div className="text-xs font-mono text-muted-foreground mt-1">
+            {filteredVariants.length} pares disponibles{searchQuery ? ` (filtrado de ${variants.length})` : ''}
+          </div>
+        </CardHeader>
+
+        <CardContent className="flex-1 p-4 overflow-hidden">
+          <ScrollArea className="h-full pr-2">
+            {filteredVariants.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground py-16 font-mono text-xs">
+                No se encontraron variantes disponibles
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {filteredVariants.map(variant => {
+                  const price = getEffectivePrice(variant)
+                  const inCart = cart.find(c => c.variant_id === variant.id)
+                  // Cascading image: product_images → brand.logo_url → SafeImage fallback
+                  const img = resolveProductImage(variant.product)
+
+                  return (
+                    <div
+                      key={variant.id}
+                      onClick={() => addToCart(variant)}
+                      className={`sneaker-card border rounded-none p-3 cursor-pointer flex flex-col gap-2 bg-background ${inCart ? 'border-primary' : 'border-border'}`}
+                    >
+                      {/* Image */}
+                      <div className="aspect-square w-full overflow-hidden bg-secondary/20 flex items-center justify-center">
+                        <SafeImage
+                          src={img}
+                          alt={variant.product?.name}
+                          className="floating-sneaker-img object-contain w-full h-full"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="text-[10px] font-mono font-bold text-primary uppercase tracking-widest truncate">
+                          {variant.sku}
+                        </div>
+                        <h3 className="font-display font-bold text-xs uppercase leading-tight text-foreground line-clamp-2">
+                          {variant.product?.name}
+                        </h3>
+                        {(variant.size || variant.color) && (
+                          <div className="flex gap-1 mt-1 flex-wrap">
+                            {variant.size && (
+                              <span className="size-btn px-2 py-0.5 text-[10px]">US {variant.size}</span>
+                            )}
+                            {variant.color && (
+                              <span className="text-[10px] font-mono text-muted-foreground">{variant.color}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1 border-t border-border/40">
+                        <span className="font-display font-black text-base text-primary">{formatCurrency(price)}</span>
+                        <span className="text-[10px] font-mono text-muted-foreground">
+                          {variant.stock_quantity} pares
+                        </span>
+                      </div>
+
+                      {inCart && (
+                        <div className="text-[10px] font-mono font-bold text-primary bg-primary/10 text-center py-0.5">
+                          EN CARRITO: {inCart.quantity}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </ScrollArea>
+        </CardContent>
+      </Card>
+
+      {/* Right: Cart & Checkout */}
+      <Card className="flex flex-col h-full border-border bg-card">
+        <CardHeader className="pb-3 border-b border-border bg-background/50">
+          <CardTitle className="flex items-center justify-between text-base font-display font-black uppercase">
+            <div className="flex items-center gap-2">
+              <Receipt className="h-5 w-5 text-primary" />
+              <span>CARRITO</span>
+            </div>
+            <span className="text-xs font-mono font-bold px-2 py-0.5 bg-primary text-primary-foreground">
+              {cart.reduce((sum, item) => sum + item.quantity, 0)} PARES
+            </span>
+          </CardTitle>
+        </CardHeader>
+
+        <CardContent className="flex-1 p-0 overflow-hidden">
+          {cart.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-6 text-center font-mono">
+              <ShoppingCart className="h-10 w-10 opacity-20 mb-3" />
+              <p className="text-xs font-display font-bold uppercase tracking-wider">CARRITO VACÍO</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Selecciona los pares del catálogo</p>
+            </div>
+          ) : (
+            <ScrollArea className="h-full">
+              <div className="divide-y divide-border">
+                {cart.map(item => (
+                  <div key={item.variant_id} className="p-3.5 flex gap-3 hover:bg-background/80 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-display font-bold text-xs uppercase text-foreground truncate">{item.name}</h4>
+                      <div className="text-[10px] font-mono text-muted-foreground">{item.sku}</div>
+                      <div className="font-display font-black text-sm text-primary mt-1">{formatCurrency(item.price)} c/u</div>
+                    </div>
+
+                    <div className="flex flex-col items-end justify-between">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-destructive hover:bg-destructive/10 cursor-pointer"
+                        onClick={() => removeFromCart(item.variant_id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+
+                      <div className="flex items-center gap-1 border border-border bg-background">
+                        <Button variant="ghost" size="icon" className="h-6 w-6 cursor-pointer" onClick={() => updateQuantity(item.variant_id, -1)}>
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        <span className="w-6 text-center font-mono text-xs font-bold">{item.quantity}</span>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 cursor-pointer" onClick={() => updateQuantity(item.variant_id, 1)}>
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </CardContent>
+
+        <CardFooter className="flex-col p-4 border-t border-border bg-background/50 gap-4">
+          <div className="w-full space-y-1.5 font-mono text-xs">
+            <div className="flex justify-between text-muted-foreground">
+              <span>SUBTOTAL</span>
+              <span>{formatCurrency(subtotal)}</span>
+            </div>
+            <div className="flex justify-between font-display font-black text-xl pt-2 border-t border-border text-foreground">
+              <span>TOTAL</span>
+              <span className="text-primary">{formatCurrency(total)}</span>
+            </div>
+          </div>
+
+          <div className="w-full grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant={paymentMethod === 'cash' ? 'default' : 'outline'}
+              className="w-full text-xs font-display font-bold uppercase cursor-pointer"
+              onClick={() => setPaymentMethod('cash')}
+              style={paymentMethod === 'cash' ? { color: 'hsl(var(--primary-foreground))' } : {}}
+            >
+              <Banknote className="mr-1.5 h-4 w-4" /> EFECTIVO
+            </Button>
+            <Button
+              type="button"
+              variant={paymentMethod === 'card' ? 'default' : 'outline'}
+              className="w-full text-xs font-display font-bold uppercase cursor-pointer"
+              onClick={() => setPaymentMethod('card')}
+              style={paymentMethod === 'card' ? { color: 'hsl(var(--primary-foreground))' } : {}}
+            >
+              <CreditCard className="mr-1.5 h-4 w-4" /> TARJETA
+            </Button>
+          </div>
+
+          <Button
+            className="w-full h-12 text-base font-display font-black uppercase tracking-widest shadow-lg shadow-primary/20 cursor-pointer"
+            disabled={cart.length === 0 || isProcessing}
+            onClick={handleCheckout}
+            style={{ color: 'hsl(var(--primary-foreground))' }}
+          >
+            {isProcessing ? 'PROCESANDO...' : `COBRAR · ${formatCurrency(total)}`}
+          </Button>
+        </CardFooter>
+      </Card>
+    </div>
+  )
+}

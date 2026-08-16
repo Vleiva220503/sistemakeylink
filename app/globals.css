@@ -1,0 +1,199 @@
+@import "tailwindcss";
+
+@plugin "tailwindcss-animate";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --font-sans: var(--font-sans), "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display), "Barlow Condensed", ui-sans-serif, system-ui, sans-serif;
+
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+@layer base {
+  :root {
+    /* KEYLING WARM MINIMAL PALETTE — Warm Off-White (#F7F5F0) & Burnt Orange (#E04B16) */
+    --background: 40 20% 96%;          /* Warm Off-White / Crudo Cálido #F7F5F0 */
+    --foreground: 40 8% 10%;           /* Dark Charcoal / Negro Suave #1A1917 */
+    
+    --card: 40 16% 92%;                /* Warm Sand / Beige Arena #EFECE6 */
+    --card-foreground: 40 8% 10%;
+    
+    --popover: 0 0% 100%;              /* Pure White #FFFFFF */
+    --popover-foreground: 40 8% 10%;
+    
+    --primary: 14 82% 48%;             /* Burnt Crimson Orange / Naranja Quemado #E04B16 */
+    --primary-foreground: 0 0% 100%;   /* Pure White text for maximum AA contrast */
+    
+    --secondary: 40 14% 88%;           /* Muted Linen #E5E1D8 */
+    --secondary-foreground: 40 8% 10%;
+    
+    --muted: 40 14% 88%;
+    --muted-foreground: 40 6% 41%;    /* Warm Taupe #6E6A63 */
+    
+    --accent: 14 82% 48%;              /* Burnt Crimson Orange */
+    --accent-foreground: 0 0% 100%;
+    
+    --destructive: 0 75% 42%;          /* Brick Crimson #C62828 */
+    --destructive-foreground: 0 0% 100%;
+
+    --warning: 35 90% 42%;             /* Warm Amber */
+    --warning-foreground: 0 0% 100%;
+
+    --success: 150 70% 32%;            /* Forest Mint */
+    --success-foreground: 0 0% 100%;
+    
+    --border: 40 14% 84%;              /* Warm Oat Border #E0DCD3 */
+    --input: 40 14% 84%;
+    --ring: 14 82% 48%;
+    
+    --radius: 0.25rem;                 /* Crisp minimal rectangular cuts */
+  }
+
+  .dark {
+    --background: 40 20% 96%;
+    --foreground: 40 8% 10%;
+    
+    --card: 40 16% 92%;
+    --card-foreground: 40 8% 10%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 40 8% 10%;
+    
+    --primary: 14 82% 48%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 40 14% 88%;
+    --secondary-foreground: 40 8% 10%;
+    
+    --muted: 40 14% 88%;
+    --muted-foreground: 40 6% 41%;
+    
+    --accent: 14 82% 48%;
+    --accent-foreground: 0 0% 100%;
+    
+    --destructive: 0 75% 42%;
+    --destructive-foreground: 0 0% 100%;
+
+    --warning: 35 90% 42%;
+    --warning-foreground: 0 0% 100%;
+
+    --success: 150 70% 32%;
+    --success-foreground: 0 0% 100%;
+    
+    --border: 40 14% 84%;
+    --input: 40 14% 84%;
+    --ring: 14 82% 48%;
+  }
+}
+
+@layer base {
+  *, ::after, ::before, ::backdrop {
+    border-color: var(--color-border);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-feature-settings: "cv02", "cv03", "cv04";
+  }
+}
+
+/* Custom Warm Minimal Sneaker Store Utilities */
+.sneaker-hero-bg {
+  background: linear-gradient(135deg, #F7F5F0 0%, #EFECE6 100%);
+}
+
+.sneaker-card {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  background-color: #EFECE6;
+  border-color: #E0DCD3;
+}
+.sneaker-card:hover {
+  border-color: #E04B16;
+  transform: translateY(-4px);
+  box-shadow: 0 16px 32px -10px rgba(224, 75, 22, 0.15);
+}
+
+.floating-sneaker-img {
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.sneaker-card:hover .floating-sneaker-img {
+  transform: scale(1.08) rotate(-3deg);
+}
+
+/* Graphic watermark typography text for sneaker drops */
+.watermark-num {
+  font-family: var(--font-display);
+  font-weight: 900;
+  color: rgba(26, 25, 23, 0.05);
+  user-select: none;
+  pointer-events: none;
+  line-height: 0.8;
+}
+
+/* Size Pill Grid Buttons */
+.size-btn {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  border: 1px solid #E0DCD3;
+  background: #FFFFFF;
+  color: #1A1917;
+  transition: all 0.15s ease;
+}
+.size-btn:hover {
+  border-color: #E04B16;
+  color: #E04B16;
+  background: rgba(224, 75, 22, 0.06);
+}
+.size-btn.active {
+  border-color: #E04B16;
+  background: #E04B16;
+  color: #FFFFFF;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F7F5F0;
+}
+::-webkit-scrollbar-thumb {
+  background: #E0DCD3;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #E04B16;
+}
