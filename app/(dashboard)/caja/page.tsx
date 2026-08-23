@@ -58,7 +58,7 @@ export default async function CajaPage() {
             <CardContent className="space-y-2 text-sm">
               {reg.status === 'open' && reg.opened_at && (
                 <p className="text-muted-foreground">
-                  Abierta: {new Date(reg.opened_at).toLocaleString('es')}
+                  Abierta: {new Date(reg.opened_at).toLocaleString('es-NI', { timeZone: 'America/Managua' })}
                 </p>
               )}
               {reg.initial_amount != null && (
@@ -133,7 +133,7 @@ export default async function CajaPage() {
                 {movements.map((m: any) => (
                   <TableRow key={m.id}>
                     <TableCell className="text-sm text-muted-foreground">
-                      {new Date(m.created_at).toLocaleString('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      {new Date(m.created_at).toLocaleString('es-NI', { timeZone: 'America/Managua', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </TableCell>
                     <TableCell className="text-sm">{m.register?.name}</TableCell>
                     <TableCell>

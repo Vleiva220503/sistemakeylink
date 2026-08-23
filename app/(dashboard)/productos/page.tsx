@@ -17,7 +17,7 @@ export default async function ProductosPage() {
     .from('products')
     .select(`
       *,
-      categories(id, name, slug),
+      categories(id, name, slug, description),
       brands(id, name, slug, logo_url),
       product_images(*),
       product_variants(*)

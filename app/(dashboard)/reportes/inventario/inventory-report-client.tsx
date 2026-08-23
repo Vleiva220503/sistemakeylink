@@ -11,6 +11,7 @@ import { ExportButton } from '@/components/shared/export-button'
 interface Category {
   id: string
   name: string
+  description?: string | null
 }
 
 interface Brand {
@@ -111,7 +112,8 @@ export function InventoryReportClient({
         'SKU': v.sku,
         'Talla': v.size || '—',
         'Color': v.color || '—',
-        'Categoría': v.product?.category?.name || '—',
+        'Categoría de Talla': v.product?.category?.name || '—',
+        'Desc. Talla': v.product?.category?.description || '—',
         'Marca': v.product?.brand?.name || '—',
         'Stock': v.stock_quantity,
         'Precio Venta': price,
@@ -150,6 +152,7 @@ export function InventoryReportClient({
         talla: v.size || '—',
         color: v.color || '—',
         categoria: v.product?.category?.name || '—',
+        descTalla: v.product?.category?.description || '',
         marca: v.product?.brand?.name || '—',
         stock: v.stock_quantity,
         costo: cost,
@@ -272,7 +275,7 @@ export function InventoryReportClient({
 
           {/* Category Selector */}
           <div className="md:col-span-2 space-y-1.5">
-            <label className="text-xs font-bold font-mono text-muted-foreground uppercase tracking-wider">Categoría</label>
+            <label className="text-xs font-bold font-mono text-muted-foreground uppercase tracking-wider">Talla</label>
             <select
               className="w-full h-10 px-3 text-sm bg-background border border-border rounded-md outline-none focus:ring-1 focus:ring-primary"
               value={categoryFilter}
@@ -280,7 +283,9 @@ export function InventoryReportClient({
             >
               <option value="">Todas</option>
               {categories.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+                <option key={c.id} value={c.id}>
+                  {c.name}{c.description ? ` — ${c.description}` : ''}
+                </option>
               ))}
             </select>
           </div>
@@ -346,6 +351,7 @@ export function InventoryReportClient({
                   <TableHead className="font-mono text-xs uppercase">Producto</TableHead>
                   <TableHead className="font-mono text-xs uppercase">SKU</TableHead>
                   <TableHead className="font-mono text-xs uppercase text-center">Talla/Color</TableHead>
+                  <TableHead className="font-mono text-xs uppercase">Cat. Talla</TableHead>
                   <TableHead className="font-mono text-xs uppercase text-center">Stock</TableHead>
                   {isAdmin && <TableHead className="font-mono text-xs uppercase text-right">Costo Unit.</TableHead>}
                   <TableHead className="font-mono text-xs uppercase text-right">Precio Venta</TableHead>
@@ -358,7 +364,7 @@ export function InventoryReportClient({
               <TableBody>
                 {filteredVariants.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={isAdmin ? 10 : 6} className="text-center py-8 text-muted-foreground font-mono text-xs">
+                    <TableCell colSpan={isAdmin ? 11 : 7} className="text-center py-8 text-muted-foreground font-mono text-xs">
                       No hay variantes que coincidan con los filtros aplicados.
                     </TableCell>
                   </TableRow>
@@ -379,6 +385,12 @@ export function InventoryReportClient({
                         <TableCell className="font-mono text-muted-foreground">{v.sku}</TableCell>
                         <TableCell className="text-center font-mono text-muted-foreground">
                           {v.size ? `T: ${v.size}` : '—'} {v.color ? `· ${v.color}` : ''}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          <span className="font-semibold">{v.product?.category?.name || '—'}</span>
+                          {v.product?.category?.description && (
+                            <span className="block text-muted-foreground text-[10px]">{v.product.category.description}</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-center font-mono font-bold text-foreground">
                           {v.stock_quantity}

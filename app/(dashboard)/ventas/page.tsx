@@ -64,7 +64,7 @@ export default async function VentasPage() {
         base_price,
         status,
         brand:brands(name, logo_url),
-        category:categories(name),
+        category:categories(name, description),
         product_images(url, is_primary, sort_order)
       )
     `)

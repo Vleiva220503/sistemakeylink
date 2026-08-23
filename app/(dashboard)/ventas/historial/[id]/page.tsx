@@ -58,7 +58,8 @@ export default async function VentaDetallePage({ params }: PageProps) {
           product:products(
             id,
             name,
-            sku
+            sku,
+            category:categories(name, description)
           )
         )
       ),

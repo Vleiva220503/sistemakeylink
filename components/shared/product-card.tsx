@@ -69,11 +69,18 @@ export function ProductCard({ product }: ProductCardProps) {
         {/* Card Body */}
         <CardContent className="p-4 flex-1 flex flex-col justify-between space-y-3">
           <div className="space-y-1">
-            <div className="flex items-center justify-between text-[11px] font-mono text-muted-foreground">
-              <span className="uppercase tracking-widest font-semibold text-primary">
-                {product.categories?.name || 'FOOTWEAR'}
-              </span>
-              <span className="text-[10px] opacity-70">REF: {product.sku}</span>
+            <div className="flex flex-col gap-1 text-[11px] font-mono text-muted-foreground">
+              <div className="flex items-center justify-between">
+                <span className="uppercase tracking-widest font-semibold text-primary">
+                  Talla: {product.categories?.name || '—'}
+                </span>
+                <span className="text-[10px] opacity-70">REF: {product.sku}</span>
+              </div>
+              {product.categories?.description && (
+                <span className="text-[10px] text-muted-foreground truncate uppercase">
+                  Desc. Talla: {product.categories.description}
+                </span>
+              )}
             </div>
 
             <h3 className="font-display text-xl font-bold tracking-tight text-foreground group-hover:text-primary transition-colors line-clamp-2 uppercase leading-tight">

@@ -52,6 +52,7 @@ interface SaleVariant {
     id: string
     name: string
     sku: string
+    category?: { name: string; description?: string | null } | null
   } | null
 }
 
@@ -187,6 +188,7 @@ export function SaleDetailClient({ sale, isAdmin, currentCashierName }: SaleDeta
           return {
             name: variantLabel,
             sku: item.variant?.sku ?? '—',
+            talla: item.variant?.product?.category?.name ?? null,
             quantity: item.quantity,
             unitPrice: Number(item.unit_price),
             discount: Number(item.discount_amount ?? 0),
@@ -250,7 +252,8 @@ export function SaleDetailClient({ sale, isAdmin, currentCashierName }: SaleDeta
           </div>
           <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-1">
             <Calendar className="h-3.5 w-3.5" />
-            {new Date(sale.created_at).toLocaleDateString('es-HN', {
+            {new Date(sale.created_at).toLocaleDateString('es-NI', {
+              timeZone: 'America/Managua',
               weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
               hour: '2-digit', minute: '2-digit',
             })}
@@ -447,7 +450,15 @@ export function SaleDetailClient({ sale, isAdmin, currentCashierName }: SaleDeta
                     <tr key={item.id} className={`border-b last:border-0 ${idx % 2 === 0 ? '' : 'bg-muted/10'} hover:bg-muted/20 transition-colors`}>
                       <td className="p-3 pl-4">
                         <p className="font-medium text-sm">{productName}</p>
-                        {attrs && <p className="text-xs text-muted-foreground mt-0.5">{attrs}</p>}
+                        <div className="flex flex-col gap-0.5 mt-0.5">
+                          {item.variant?.product?.category?.name && (
+                            <p className="text-xs text-primary font-semibold">
+                              Talla Padre: {item.variant.product.category.name}
+                              {item.variant.product.category.description ? ` (${item.variant.product.category.description})` : ''}
+                            </p>
+                          )}
+                          {attrs && <p className="text-xs text-muted-foreground">{attrs}</p>}
+                        </div>
                       </td>
                       <td className="p-3">
                         <span className="font-mono text-xs text-muted-foreground">{item.variant?.sku ?? '—'}</span>

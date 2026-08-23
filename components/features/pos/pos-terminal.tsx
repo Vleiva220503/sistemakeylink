@@ -29,7 +29,7 @@ export type PosVariant = {
     sku: string
     base_price: number
     brand?: { name: string; logo_url?: string | null } | null
-    category?: { name: string } | null
+    category?: { name: string; description?: string | null } | null
     product_images?: { url: string; is_primary: boolean; sort_order: number }[]
   }
 }
@@ -38,6 +38,8 @@ type CartItem = {
   variant_id: string
   name: string           // product name + size/color
   sku: string
+  talla: string | null   // categoría padre (Talla clasificación)
+  tallaDescription: string | null // descripción de la talla
   price: number          // effective price: price_override ?? base_price
   stock: number
   quantity: number
@@ -102,6 +104,8 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
         variant_id: variant.id,
         name: getVariantLabel(variant),
         sku: variant.sku,
+        talla: variant.product?.category?.name ?? null,
+        tallaDescription: variant.product?.category?.description ?? null,
         price,
         stock: variant.stock_quantity,
         quantity: 1
@@ -175,6 +179,8 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
             items: cartSnapshot.map(item => ({
               name: item.name,
               sku: item.sku,
+              talla: item.talla,
+              tallaDescription: item.tallaDescription,
               quantity: item.quantity,
               unitPrice: item.price,
               discount: 0,
@@ -246,8 +252,16 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
                       </div>
 
                       <div>
-                        <div className="text-[10px] font-mono font-bold text-primary uppercase tracking-widest truncate">
-                          {variant.sku}
+                        <div className="flex items-center justify-between text-[10px] font-mono font-bold text-primary uppercase tracking-widest">
+                          <span className="truncate mr-1">{variant.sku}</span>
+                          {variant.product?.category?.name && (
+                            <span 
+                              className="text-muted-foreground font-semibold shrink-0 cursor-help"
+                              title={variant.product.category.description || undefined}
+                            >
+                              Talla {variant.product.category.name}
+                            </span>
+                          )}
                         </div>
                         <h3 className="font-display font-bold text-xs uppercase leading-tight text-foreground line-clamp-2">
                           {variant.product?.name}

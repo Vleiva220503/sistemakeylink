@@ -42,7 +42,7 @@ export function CategoriesListClient({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <CardTitle className="flex items-center gap-2">
             <Tag className="h-5 w-5" />
-            Directorio de Categorías
+            Directorio de Tallas
             <Badge variant="secondary" className="ml-2">
               {categories.filter((c) => c.is_active).length}
             </Badge>
@@ -51,7 +51,7 @@ export function CategoriesListClient({
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
-              placeholder="Buscar categoría..."
+              placeholder="Buscar talla..."
               className="pl-8"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -64,7 +64,7 @@ export function CategoriesListClient({
           <div className="flex flex-col items-center justify-center h-48 text-muted-foreground gap-3">
             <Tag className="h-10 w-10 opacity-20" />
             <p>
-              {search ? 'No se encontraron categorías' : 'No hay categorías registradas'}
+              {search ? 'No se encontraron tallas' : 'No hay tallas registradas'}
             </p>
           </div>
         ) : (
@@ -103,7 +103,7 @@ export function CategoriesListClient({
 
                     <DeleteWithConfirm
                       itemName={cat.name}
-                      itemType="categoría"
+                      itemType="talla"
                       productCount={count}
                       onConfirm={() => deleteCategory(cat.id)}
                     />

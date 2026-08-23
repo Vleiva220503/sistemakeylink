@@ -157,8 +157,8 @@ export async function exportInventoryPDF(rows: InventoryExportRow[], isAdmin: bo
   )
 
   const headers = isAdmin
-    ? [['Nombre', 'SKU', 'Talla', 'Color', 'Categoría', 'Marca', 'Stock', 'Costo', 'Precio', 'Estado']]
-    : [['Nombre', 'SKU', 'Talla', 'Color', 'Categoría', 'Marca', 'Stock', 'Estado']]
+    ? [['Nombre', 'SKU', 'Talla', 'Color', 'Categoría de Talla', 'Marca', 'Stock', 'Costo', 'Precio', 'Estado']]
+    : [['Nombre', 'SKU', 'Talla', 'Color', 'Categoría de Talla', 'Marca', 'Stock', 'Estado']]
 
   const bodyData = rows.map((r) => {
     if (isAdmin) {
@@ -395,7 +395,7 @@ export async function exportTopProductsPDF(
 
   autoTable(doc, {
     startY: startY + 6,
-    head: [['Rnk', 'Producto', 'SKU', 'Categoría', 'Marca', 'Uds. Vendidas', 'Ingreso Neto']],
+    head: [['Rnk', 'Producto', 'SKU', 'Talla', 'Marca', 'Uds. Vendidas', 'Ingreso Neto']],
     body: rows.map(r => [
       r.ranking,
       r.nombre,

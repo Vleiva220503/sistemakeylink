@@ -34,7 +34,7 @@ const getNavigation = (isAdmin: boolean): NavItem[] => {
       children: [
         { name: 'Productos', href: '/productos' },
         ...(isAdmin ? [
-          { name: 'Categorías', href: '/categorias' },
+          { name: 'Tallas', href: '/categorias' },
           { name: 'Marcas', href: '/marcas' },
         ] : []),
       ],

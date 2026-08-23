@@ -136,7 +136,7 @@ export function InventoryDetailSheet({ open, onOpenChange, data }: DetailSheetPr
             </h4>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div>
-                <span className="text-muted-foreground block text-[10px] font-mono">CATEGORÍA:</span>
+                <span className="text-muted-foreground block text-[10px] font-mono">TALLA:</span>
                 <span className="font-bold text-foreground">{product.categories?.name || 'General'}</span>
               </div>
               <div>

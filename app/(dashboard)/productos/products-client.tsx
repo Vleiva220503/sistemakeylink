@@ -108,7 +108,7 @@ export function ProductsClient({ initialProducts, categories, brands, isAdmin }:
       const row: any = {
         Nombre: p.name || '',
         SKU: p.sku || '',
-        Categoría: (p.categories as any)?.name || '—',
+        Talla: (p.categories as any)?.name || '—',
         Marca: (p.brands as any)?.name || '—',
         Stock: totalStock,
       }
@@ -185,7 +185,7 @@ export function ProductsClient({ initialProducts, categories, brands, isAdmin }:
 
           {/* Category */}
           <div className="md:col-span-2 space-y-1.5">
-            <label className="text-xs font-semibold text-muted-foreground uppercase">Categoría</label>
+            <label className="text-xs font-semibold text-muted-foreground uppercase">Talla</label>
             <select
               className="w-full h-10 px-3 text-sm bg-background border border-border rounded-md outline-none focus:ring-1 focus:ring-primary"
               value={categoryFilter}

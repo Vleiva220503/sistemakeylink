@@ -1,12 +1,14 @@
 'use client'
 
 import Image from 'next/image'
+import Link from 'next/link'
 import { Bell, Menu, Search, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -96,18 +98,23 @@ export function Header({ user, registerName }: HeaderProps) {
             }
           />
           <DropdownMenuContent className="w-56 bg-card border-border shadow-xl" align="end">
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-display font-bold text-foreground leading-none">{user.fullName || 'Usuario'}</p>
-                <div className="flex items-center gap-1 mt-1 text-[10px] font-mono tracking-wider uppercase text-primary font-bold">
-                  <ShieldCheck className="h-3 w-3" />
-                  <span>{user.role}</span>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-display font-bold text-foreground leading-none">{user.fullName || 'Usuario'}</p>
+                  <div className="flex items-center gap-1 mt-1 text-[10px] font-mono tracking-wider uppercase text-primary font-bold">
+                    <ShieldCheck className="h-3 w-3" />
+                    <span>{user.role}</span>
+                  </div>
                 </div>
-              </div>
-            </DropdownMenuLabel>
+              </DropdownMenuLabel>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator className="bg-border" />
-            <DropdownMenuItem className="cursor-pointer text-xs font-medium">Perfil de Operador</DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer text-xs font-medium">Ajustes del Sistema</DropdownMenuItem>
+            <Link href="/perfil" className="w-full">
+              <DropdownMenuItem className="cursor-pointer text-xs font-medium">
+                Perfil de Operador
+              </DropdownMenuItem>
+            </Link>
             <DropdownMenuSeparator className="bg-border" />
             <DropdownMenuItem>
               <form action="/auth/signout" method="post" className="w-full">

@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Loader2, AlertCircle, Eye, EyeOff, User, Lock } from 'lucide-react'
 import Image from 'next/image'
 
@@ -16,6 +17,10 @@ import { login } from '@/app/auth/actions'
 export default function LoginPage() {
   const [state, formAction, isPending] = useActionState(login, undefined)
   const [showPassword, setShowPassword] = useState(false)
+  const searchParams = useSearchParams()
+
+  const isInactiveError = searchParams.get('error') === 'inactive'
+  const errorMessage = state?.error || (isInactiveError ? 'Tu cuenta ha sido desactivada. Contacta al administrador.' : null)
 
   return (
     <div className="w-full max-w-md">
@@ -44,10 +49,10 @@ export default function LoginPage() {
           <form action={formAction} className="space-y-4">
 
             {/* Error message */}
-            {state?.error && (
+            {errorMessage && (
               <div className="flex items-center gap-2.5 border border-destructive/50 bg-destructive/10 px-4 py-3 text-xs text-destructive animate-in fade-in slide-in-from-top-1 font-mono font-bold rounded">
                 <AlertCircle className="h-4 w-4 shrink-0" />
-                <span>{state.error}</span>
+                <span>{errorMessage}</span>
               </div>
             )}
 

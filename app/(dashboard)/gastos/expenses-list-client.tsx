@@ -34,6 +34,8 @@ interface ExpensesListClientProps {
 export function ExpensesListClient({ initialExpenses, categories }: ExpensesListClientProps) {
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const [dateStart, setDateStart] = useState('')
+  const [dateEnd, setDateEnd] = useState('')
 
   const filteredExpenses = initialExpenses.filter((e) => {
     // 1. Search text
@@ -44,7 +46,16 @@ export function ExpensesListClient({ initialExpenses, categories }: ExpensesList
     const matchesCategory =
       categoryFilter === 'all' || e.category_id === categoryFilter
 
-    return matchesSearch && matchesCategory
+    // 3. Date range filter
+    let matchesDate = true
+    if (dateStart) {
+      matchesDate = matchesDate && e.expense_date >= dateStart
+    }
+    if (dateEnd) {
+      matchesDate = matchesDate && e.expense_date <= dateEnd
+    }
+
+    return matchesSearch && matchesCategory && matchesDate
   })
 
   return (
@@ -64,6 +75,24 @@ export function ExpensesListClient({ initialExpenses, categories }: ExpensesList
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
+            {/* Date Inputs */}
+            <div className="flex items-center gap-1.5 w-full sm:w-auto">
+              <Input
+                type="date"
+                placeholder="Desde"
+                className="w-full sm:w-32 h-10 text-xs"
+                value={dateStart}
+                onChange={(e) => setDateStart(e.target.value)}
+              />
+              <span className="text-xs text-muted-foreground shrink-0">a</span>
+              <Input
+                type="date"
+                placeholder="Hasta"
+                className="w-full sm:w-32 h-10 text-xs"
+                value={dateEnd}
+                onChange={(e) => setDateEnd(e.target.value)}
+              />
+            </div>
             {/* Category Filter */}
             <Select
               value={categoryFilter}
@@ -81,6 +110,19 @@ export function ExpensesListClient({ initialExpenses, categories }: ExpensesList
                 ))}
               </SelectContent>
             </Select>
+            {(search || categoryFilter !== 'all' || dateStart || dateEnd) && (
+              <button
+                onClick={() => {
+                  setSearch('')
+                  setCategoryFilter('all')
+                  setDateStart('')
+                  setDateEnd('')
+                }}
+                className="h-10 px-3 text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground border border-border rounded-md bg-secondary/20 shrink-0 cursor-pointer"
+              >
+                Limpiar
+              </button>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -89,7 +131,7 @@ export function ExpensesListClient({ initialExpenses, categories }: ExpensesList
           <div className="flex flex-col items-center justify-center h-48 text-muted-foreground gap-3">
             <Receipt className="h-10 w-10 opacity-20" />
             <p>
-              {search || categoryFilter !== 'all'
+              {search || categoryFilter !== 'all' || dateStart || dateEnd
                 ? 'No se encontraron gastos con los filtros aplicados'
                 : 'No hay gastos registrados'}
             </p>

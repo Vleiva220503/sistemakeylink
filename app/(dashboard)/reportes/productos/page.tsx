@@ -28,7 +28,7 @@ export default async function ReporteProductosPopularesPage({ searchParams }: Pr
         id, sku,
         product:products(
           id, name, category_id, brand_id,
-          category:categories(name),
+          category:categories(name, description),
           brand:brands(name)
         )
       ),
@@ -57,6 +57,7 @@ export default async function ReporteProductosPopularesPage({ searchParams }: Pr
         name: product.name || '—',
         sku: item.variant?.sku || '—',
         category: product.category?.name || '—',
+        categoryDescription: product.category?.description || '',
         brand: product.brand?.name || '—',
         categoryId: product.category_id || '',
         brandId: product.brand_id || '',
@@ -74,7 +75,7 @@ export default async function ReporteProductosPopularesPage({ searchParams }: Pr
   // Fetch categories
   const { data: categoriesData } = await supabase
     .from('categories')
-    .select('id, name')
+    .select('id, name, description')
     .order('name')
   const categories = categoriesData || []
 

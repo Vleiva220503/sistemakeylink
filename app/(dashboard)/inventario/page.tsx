@@ -16,7 +16,7 @@ export default async function InventarioPage() {
       id, sku, size, color, quality, image_url, stock_quantity, stock_min, stock_reorder_point, cost, is_active,
       product:products(
         id, name, sku, status, description, category_id, brand_id,
-        categories(id, name, slug),
+        categories(id, name, slug, description),
         brands(id, name, slug, logo_url),
         product_images(url, is_primary, sort_order)
       )

@@ -23,7 +23,7 @@ export default async function ProductDetailPage({
     .from('products')
     .select(`
       *,
-      categories(id, name),
+      categories(id, name, description),
       brands(id, name, logo_url),
       product_images(*),
       product_variants(*)
@@ -129,6 +129,18 @@ export default async function ProductDetailPage({
               <div className="flex justify-between items-center p-2.5 bg-secondary/30 border border-border">
                 <span className="text-muted-foreground uppercase">PRECIO BASE</span>
                 <span className="font-display font-black text-2xl text-primary">{formatCurrency(product.base_price)}</span>
+              </div>
+              <div className="flex justify-between items-center p-2.5 bg-secondary/30 border border-border">
+                <span className="text-muted-foreground uppercase">TALLA</span>
+                <span className="font-bold text-foreground text-sm uppercase">
+                  {product.categories?.name || '—'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center p-2.5 bg-secondary/30 border border-border">
+                <span className="text-muted-foreground uppercase">DESC. TALLA</span>
+                <span className="font-bold text-foreground text-sm uppercase">
+                  {product.categories?.description || '—'}
+                </span>
               </div>
               <div className="flex justify-between items-center p-2.5 bg-secondary/30 border border-border">
                 <span className="text-muted-foreground uppercase">DISPONIBILIDAD TOTAL</span>

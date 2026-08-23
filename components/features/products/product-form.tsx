@@ -52,7 +52,7 @@ const productSchema = z.object({
     ),
   barcode: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
-  category_id: z.string().optional().nullable(),
+  category_id: z.string().min(1, 'La talla es requerida'),
   brand_id: z.string().optional().nullable(),
   base_price: z.coerce
     .number()
@@ -126,10 +126,12 @@ export function ProductForm({
   })
 
   const watchBrandId = form.watch('brand_id')
+  const watchCategoryId = form.watch('category_id')
   const watchCost = form.watch('cost')
   const watchBasePrice = form.watch('base_price')
 
   const selectedBrand = brands.find((b) => b.id === watchBrandId)
+  const selectedCategory = categories.find((c) => c.id === watchCategoryId)
 
   // Improvement E: warn when cost ≥ price (negative or zero margin)
   const hasCostWarning =
@@ -242,8 +244,8 @@ export function ProductForm({
           </h1>
           <p className="text-muted-foreground">
             {isEdit
-              ? 'Modifica los detalles, categoría y marca del calzado'
-              : 'Registra un nuevo producto con categoría, marca y stock inicial'}
+              ? 'Modifica los detalles, talla y marca del calzado'
+              : 'Registra un nuevo producto con talla, marca y stock inicial'}
           </p>
         </div>
       </div>
@@ -465,7 +467,7 @@ export function ProductForm({
                         name="cost"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Costo Unitario Promedio (C$)</FormLabel>
+                            <FormLabel>Precio de Compra (C$)</FormLabel>
                             <FormControl>
                               <Input
                                 id="product-cost"
@@ -524,7 +526,7 @@ export function ProductForm({
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Layers className="h-4 w-4 text-primary" />
-                    Categoría y Marca
+                    Talla y Marca
                   </CardTitle>
                   <CardDescription>
                     Clasificación del producto en Supabase
@@ -538,7 +540,7 @@ export function ProductForm({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="font-semibold flex items-center justify-between">
-                          <span>Categoría</span>
+                          <span>Talla *</span>
                           <Link
                             href="/categorias"
                             className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
@@ -553,13 +555,18 @@ export function ProductForm({
                           onChange={field.onChange}
                           disabled={isLoading}
                         >
-                          <option value="">-- Sin categoría --</option>
+                          <option value="">-- Selecciona una talla --</option>
                           {categories.map((c) => (
                             <option key={c.id} value={c.id}>
-                              {c.name}
+                              {c.name} {c.description ? `(${c.description})` : ''}
                             </option>
                           ))}
                         </select>
+                        {selectedCategory?.description && (
+                          <p className="text-[11px] text-primary font-medium animate-in fade-in slide-in-from-top-1">
+                            Descripción: {selectedCategory.description}
+                          </p>
+                        )}
                         <FormMessage />
                       </FormItem>
                     )}

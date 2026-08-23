@@ -14,7 +14,7 @@ export default async function ReporteInventarioPage() {
   // Fetch categories
   const { data: categoriesData } = await supabase
     .from('categories')
-    .select('id, name')
+    .select('id, name, description')
     .order('name')
   const categories = categoriesData || []
 
@@ -32,7 +32,7 @@ export default async function ReporteInventarioPage() {
       id, sku, size, color, quality, cost, price_override, stock_quantity, stock_min, stock_reorder_point, is_active,
       product:products(
         id, name, base_price, category_id, brand_id,
-        category:categories(id, name),
+        category:categories(id, name, description),
         brand:brands(id, name)
       )
     `)

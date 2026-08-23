@@ -510,6 +510,7 @@ export function SalesReportClient({
                   <TableHead className="font-mono text-xs uppercase">Fecha</TableHead>
                   <TableHead className="font-mono text-xs uppercase">Cliente</TableHead>
                   <TableHead className="font-mono text-xs uppercase">Cajero</TableHead>
+                  <TableHead className="font-mono text-xs uppercase text-center">Tallas</TableHead>
                   <TableHead className="font-mono text-xs uppercase text-right">Subtotal</TableHead>
                   <TableHead className="font-mono text-xs uppercase text-right">Descuento</TableHead>
                   <TableHead className="font-mono text-xs uppercase text-right">Total</TableHead>
@@ -520,7 +521,7 @@ export function SalesReportClient({
               <TableBody>
                 {filteredSales.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground font-mono text-xs">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground font-mono text-xs">
                       No se encontraron transacciones en el período seleccionado.
                     </TableCell>
                   </TableRow>
@@ -536,7 +537,8 @@ export function SalesReportClient({
                         <TableCell className="text-muted-foreground">
                           <div className="flex items-center gap-1 font-mono">
                             <Calendar className="h-3 w-3" />
-                            {new Date(s.created_at).toLocaleDateString('es-HN', {
+                            {new Date(s.created_at).toLocaleDateString('es-NI', {
+                              timeZone: 'America/Managua',
                               day: '2-digit',
                               month: 'short',
                               hour: '2-digit',
@@ -546,6 +548,9 @@ export function SalesReportClient({
                         </TableCell>
                         <TableCell>{s.customer?.name || 'Cliente General'}</TableCell>
                         <TableCell className="text-muted-foreground">{s.cajero?.full_name || 'Cajero'}</TableCell>
+                        <TableCell className="text-center font-mono font-semibold">
+                          {Array.from(new Set(s.sale_items?.map((item: any) => item.variant?.size).filter(Boolean))).join(', ') || '—'}
+                        </TableCell>
                         <TableCell className="text-right font-mono">{formatCurrency(Number(s.subtotal))}</TableCell>
                         <TableCell className="text-right font-mono text-destructive">
                           {Number(s.discount_amount) > 0 ? `-${formatCurrency(Number(s.discount_amount))}` : '—'}

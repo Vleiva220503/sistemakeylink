@@ -33,6 +33,7 @@ interface Movement {
     color: string | null
     product: {
       name: string
+      category?: { name: string } | null
     } | null
   } | null
 }
@@ -222,6 +223,11 @@ export function MovementsListClient({ initialMovements }: MovementsListClientPro
                       <div>
                         <p className="font-medium text-sm">
                           {m.variant?.product?.name || '—'}
+                          {m.variant?.product?.category?.name && (
+                            <span className="text-xs font-bold text-primary ml-1.5">
+                              (Talla: {m.variant.product.category.name})
+                            </span>
+                          )}
                         </p>
                         <p className="text-xs text-muted-foreground font-mono">
                           {m.variant?.sku}

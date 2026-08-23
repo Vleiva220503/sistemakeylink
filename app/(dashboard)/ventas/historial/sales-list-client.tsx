@@ -298,7 +298,8 @@ export function SalesListClient({ initialSales, isAdmin = false }: SalesListClie
                     <TableCell className="text-sm text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
-                        {new Date(s.created_at).toLocaleDateString('es', {
+                        {new Date(s.created_at).toLocaleDateString('es-NI', {
+                          timeZone: 'America/Managua',
                           day: '2-digit',
                           month: 'short',
                           year: 'numeric',

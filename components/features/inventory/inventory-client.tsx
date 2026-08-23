@@ -39,10 +39,14 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
     variants.forEach((v: any) => {
       const cat = v.product?.categories
       if (cat?.id && cat?.name) {
-        map.set(cat.id, cat.name)
+        map.set(cat.id, { name: cat.name, description: cat.description })
       }
     })
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
+    return Array.from(map.entries()).map(([id, val]: any) => ({
+      id,
+      name: val.name,
+      description: val.description,
+    }))
   }, [variants])
 
   const brands = useMemo(() => {
@@ -150,7 +154,6 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
         SKU: v.sku || '',
         Talla: v.size || '—',
         Color: v.color || '—',
-        Categoría: v.product?.categories?.name || '—',
         Marca: v.product?.brands?.name || '—',
         Stock: v.stock_quantity || 0,
       }
@@ -286,7 +289,7 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
 
             {/* Categorías */}
             <div className="md:col-span-2 space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase">Categoría</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase">Talla</label>
               <select
                 className="w-full h-10 px-3 text-sm bg-background border border-border rounded-md outline-none focus:ring-1 focus:ring-primary"
                 value={categoryFilter}
@@ -294,7 +297,9 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
               >
                 <option value="">Todas</option>
                 {categories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                  <option key={c.id} value={c.id}>
+                    {c.name}{c.description ? ` — ${c.description}` : ''}
+                  </option>
                 ))}
               </select>
             </div>
@@ -376,6 +381,8 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
                 <TableHead className="w-12">Imagen</TableHead>
                 <TableHead>Producto</TableHead>
                 <TableHead>SKU</TableHead>
+                <TableHead>Talla</TableHead>
+                <TableHead>Desc. Talla</TableHead>
                 <TableHead>Detalles</TableHead>
                 <TableHead className="text-center">Stock</TableHead>
                 {isAdmin && <TableHead className="text-right">Costo</TableHead>}
@@ -406,9 +413,27 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
                       {v.sku}
                     </TableCell>
                     <TableCell onClick={() => setSelectedVariant(v)}>
+                      <span className="font-bold text-foreground">
+                        {v.product?.categories?.name || '—'}
+                      </span>
+                    </TableCell>
+                    <TableCell onClick={() => setSelectedVariant(v)}>
+                      <span className="text-muted-foreground font-mono text-xs">
+                        {v.product?.categories?.description || '—'}
+                      </span>
+                    </TableCell>
+                    <TableCell onClick={() => setSelectedVariant(v)}>
                       <div className="flex gap-1 flex-wrap">
-                        {v.size && <Badge variant="outline" className="text-xs">T: {v.size}</Badge>}
-                        {v.color && <Badge variant="outline" className="text-xs bg-primary/5 text-primary border-primary/20">{v.color}</Badge>}
+                        {v.product?.categories?.name && (
+                          <Badge variant="outline" className="text-xs border-primary/30 text-primary bg-primary/5">
+                            Talla: {v.product.categories.name}
+                          </Badge>
+                        )}
+                        {v.color && (
+                          <Badge variant="outline" className="text-xs bg-secondary/35 text-foreground border-border">
+                            {v.color}
+                          </Badge>
+                        )}
                       </div>
                     </TableCell>
 

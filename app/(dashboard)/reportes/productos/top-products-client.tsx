@@ -33,6 +33,7 @@ interface ProductRankingItem {
   name: string
   sku: string
   category: string
+  categoryDescription: string
   brand: string
   categoryId: string
   brandId: string
@@ -146,7 +147,8 @@ export function TopProductsReportClient({
       'Ranking': index + 1,
       'Producto': item.name,
       'SKU': item.sku,
-      'Categoría': item.category,
+      'Talla': item.category,
+      'Desc. Talla': item.categoryDescription || '—',
       'Marca': item.brand,
       'Unidades Vendidas': item.unitsSold,
       'Ingreso Neto': item.revenue,
@@ -166,6 +168,7 @@ export function TopProductsReportClient({
       nombre: item.name,
       sku: item.sku,
       categoria: item.category,
+      descTalla: item.categoryDescription || '',
       marca: item.brand,
       unidades: item.unitsSold,
       monto: item.revenue,
@@ -321,7 +324,7 @@ export function TopProductsReportClient({
 
           {/* Category Selector */}
           <div className="md:col-span-2 space-y-1.5">
-            <label className="text-xs font-bold font-mono text-muted-foreground uppercase tracking-wider">Categoría</label>
+            <label className="text-xs font-bold font-mono text-muted-foreground uppercase tracking-wider">Talla</label>
             <select
               className="w-full h-10 px-3 text-sm bg-background border border-border rounded-md outline-none focus:ring-1 focus:ring-primary"
               value={categoryFilter}
@@ -329,7 +332,9 @@ export function TopProductsReportClient({
             >
               <option value="">Todas</option>
               {categories.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+                <option key={c.id} value={c.id}>
+                  {(c as any).description ? `${c.name} — ${(c as any).description}` : c.name}
+                </option>
               ))}
             </select>
           </div>
@@ -378,7 +383,8 @@ export function TopProductsReportClient({
                   <TableHead className="font-mono text-xs uppercase text-center w-16">Puesto</TableHead>
                   <TableHead className="font-mono text-xs uppercase">Producto</TableHead>
                   <TableHead className="font-mono text-xs uppercase">SKU Variante</TableHead>
-                  <TableHead className="font-mono text-xs uppercase">Categoría</TableHead>
+                  <TableHead className="font-mono text-xs uppercase">Talla</TableHead>
+                  <TableHead className="font-mono text-xs uppercase">Desc. Talla</TableHead>
                   <TableHead className="font-mono text-xs uppercase">Marca</TableHead>
                   <TableHead className="font-mono text-xs uppercase text-center">Uds. Vendidas</TableHead>
                   <TableHead className="font-mono text-xs uppercase text-right">Ingreso Neto</TableHead>
@@ -387,7 +393,7 @@ export function TopProductsReportClient({
               <TableBody>
                 {filteredData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground font-mono text-xs">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground font-mono text-xs">
                       No hay registros en el período seleccionado.
                     </TableCell>
                   </TableRow>
@@ -402,7 +408,8 @@ export function TopProductsReportClient({
                       </TableCell>
                       <TableCell className="font-semibold text-foreground">{item.name}</TableCell>
                       <TableCell className="font-mono text-muted-foreground">{item.sku}</TableCell>
-                      <TableCell className="text-muted-foreground">{item.category}</TableCell>
+                      <TableCell className="font-mono text-muted-foreground">{item.category}</TableCell>
+                      <TableCell className="text-muted-foreground text-[11px]">{item.categoryDescription || '—'}</TableCell>
                       <TableCell className="text-muted-foreground">{item.brand}</TableCell>
                       <TableCell className="text-center font-mono font-bold text-foreground">
                         {item.unitsSold}

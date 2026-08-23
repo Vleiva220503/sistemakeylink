@@ -18,7 +18,7 @@ export default async function MovimientosInventarioPage({ searchParams }: PagePr
     .from('inventory_movements')
     .select(`
       id, type, quantity, stock_before, stock_after, reference_type, notes, created_at,
-      variant:product_variants(sku, size, color, product:products(name))
+      variant:product_variants(sku, size, color, product:products(name, category:categories(name)))
     `)
 
   if (startDate) {

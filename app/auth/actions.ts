@@ -23,13 +23,25 @@ export async function login(prevState: LoginState, formData: FormData): Promise<
     identifier = `${identifier}@keyling.com`
   }
 
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data: authData, error } = await supabase.auth.signInWithPassword({
     email: identifier,
     password,
   })
 
-  if (error) {
+  if (error || !authData.user) {
     return { error: 'Usuario o contraseña incorrectos.' }
+  }
+
+  // Check if account is active
+  const { data: profile } = await (supabase as any)
+    .from('profiles')
+    .select('is_active')
+    .eq('id', authData.user.id)
+    .single()
+
+  if (profile && !profile.is_active) {
+    await supabase.auth.signOut()
+    return { error: 'Tu cuenta ha sido desactivada. Contacta al administrador.' }
   }
 
   revalidatePath('/', 'layout')

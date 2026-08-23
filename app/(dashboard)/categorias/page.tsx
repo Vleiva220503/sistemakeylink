@@ -32,10 +32,10 @@ export default async function CategoriasPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-display font-bold tracking-tight">
-            Categorías
+            Tallas
           </h1>
           <p className="text-muted-foreground">
-            Clasifica tus productos por categoría
+            Gestiona las tallas de tus productos
           </p>
         </div>
         <CategoryForm />
