@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, Receipt, ChevronDown } from 'lucide-react'
+import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, Receipt, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -23,6 +23,7 @@ export type PosVariant = {
   quality: string | null
   price_override: number | null
   stock_quantity: number
+  cost: number
   product: {
     id: string
     name: string
@@ -43,6 +44,11 @@ type CartItem = {
   price: number          // effective price: price_override ?? base_price
   stock: number
   quantity: number
+  cost: number
+  discount_val: number
+  discount_type: 'percentage' | 'fixed'
+  discount_amount: number
+  confirmedLoss: boolean
 }
 
 interface PosTerminalProps {
@@ -78,27 +84,47 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
       v.product?.sku?.toLowerCase().includes(q) ||
       v.size?.toLowerCase().includes(q) ||
       v.color?.toLowerCase().includes(q) ||
-      v.product?.brand?.name?.toLowerCase().includes(q)
+      v.product?.brand?.name?.toLowerCase().includes(q) ||
+      v.product?.category?.name?.toLowerCase().includes(q) ||
+      v.product?.category?.description?.toLowerCase().includes(q)
     )
   }, [searchQuery, variants])
 
-  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity - item.discount_amount), 0)
   const total = subtotal // No tax hardcoded — real stores set tax separately
 
+  // Margin check: if unit price after discount is less than cost, they are selling with a loss.
+  const hasUnconfirmedLoss = useMemo(() => {
+    return cart.some(item => {
+      const effectiveUnitPrice = item.price - (item.discount_amount / item.quantity)
+      const isLoss = effectiveUnitPrice < item.cost
+      return isLoss && !item.confirmedLoss
+    })
+  }, [cart])
+
   const addToCart = (variant: PosVariant) => {
+    const existing = cart.find(item => item.variant_id === variant.id)
+    const currentQty = existing ? existing.quantity : 0
+    if (currentQty >= variant.stock_quantity) {
+      toast.error(`Stock insuficiente. Disponible: ${variant.stock_quantity} pares`)
+      return
+    }
+
     const price = getEffectivePrice(variant)
     setCart(prev => {
-      const existing = prev.find(item => item.variant_id === variant.id)
-      if (existing) {
-        if (existing.quantity >= variant.stock_quantity) {
-          toast.error(`Stock insuficiente. Disponible: ${variant.stock_quantity} pares`)
-          return prev
-        }
-        return prev.map(item =>
-          item.variant_id === variant.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        )
+      const exists = prev.find(item => item.variant_id === variant.id)
+      if (exists) {
+        return prev.map(item => {
+          if (item.variant_id !== variant.id) return item
+          const newQ = item.quantity + 1
+          let amount = 0
+          if (item.discount_type === 'percentage') {
+            amount = Math.min(item.price * newQ, Number(((item.discount_val / 100) * item.price * newQ).toFixed(2)))
+          } else {
+            amount = Math.min(item.price * newQ, item.discount_val)
+          }
+          return { ...item, quantity: newQ, discount_amount: amount }
+        })
       }
       return [...prev, {
         variant_id: variant.id,
@@ -108,10 +134,41 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
         tallaDescription: variant.product?.category?.description ?? null,
         price,
         stock: variant.stock_quantity,
-        quantity: 1
+        quantity: 1,
+        cost: variant.cost ?? 0,
+        discount_val: 0,
+        discount_type: 'fixed',
+        discount_amount: 0,
+        confirmedLoss: false
       }]
     })
     toast.success(`${variant.product?.name} agregado al carrito`, { duration: 1500 })
+  }
+
+  const handleUpdateDiscount = (variantId: string, val: number, type: 'percentage' | 'fixed') => {
+    setCart(prev => prev.map(item => {
+      if (item.variant_id !== variantId) return item
+      const price = item.price
+      const qty = item.quantity
+      let amount = 0
+      if (type === 'percentage') {
+        amount = Math.min(price * qty, Number(((val / 100) * price * qty).toFixed(2)))
+      } else {
+        amount = Math.min(price * qty, val)
+      }
+      return {
+        ...item,
+        discount_val: val,
+        discount_type: type,
+        discount_amount: amount
+      }
+    }))
+  }
+
+  const handleConfirmLoss = (variantId: string, confirmed: boolean) => {
+    setCart(prev => prev.map(item => 
+      item.variant_id === variantId ? { ...item, confirmedLoss: confirmed } : item
+    ))
   }
 
   const updateQuantity = (variantId: string, delta: number) => {
@@ -124,7 +181,13 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
           toast.error(`Stock máximo disponible: ${item.stock} pares`)
           return item
         }
-        return { ...item, quantity: newQ }
+        let amount = 0
+        if (item.discount_type === 'percentage') {
+          amount = Math.min(item.price * newQ, Number(((item.discount_val / 100) * item.price * newQ).toFixed(2)))
+        } else {
+          amount = Math.min(item.price * newQ, item.discount_val)
+        }
+        return { ...item, quantity: newQ, discount_amount: amount }
       })
     )
   }
@@ -135,6 +198,10 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
 
   const handleCheckout = async () => {
     if (cart.length === 0) return
+    if (hasUnconfirmedLoss) {
+      toast.error('Tienes productos con precio menor al costo sin confirmar.')
+      return
+    }
 
     // Snapshot cart before clearing it
     const cartSnapshot = [...cart]
@@ -148,7 +215,8 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
           variant_id: item.variant_id,
           quantity: item.quantity,
           unit_price: item.price,
-          discount_amount: 0
+          discount_amount: item.discount_amount,
+          discount_type: item.discount_val > 0 ? item.discount_type : null
         })),
         payments: [{
           amount: totalSnapshot,
@@ -183,10 +251,12 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
               tallaDescription: item.tallaDescription,
               quantity: item.quantity,
               unitPrice: item.price,
-              discount: 0,
+              discount: item.discount_amount,
+              discountType: item.discount_val > 0 ? item.discount_type : null,
+              discountVal: item.discount_val
             })),
-            subtotal: totalSnapshot,
-            discountTotal: 0,
+            subtotal: cartSnapshot.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+            discountTotal: cartSnapshot.reduce((sum, item) => sum + item.discount_amount, 0),
             total: totalSnapshot,
           }
           await generateInvoicePDF(invoiceData)
@@ -239,8 +309,7 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
                   return (
                     <div
                       key={variant.id}
-                      onClick={() => addToCart(variant)}
-                      className={`sneaker-card border rounded-none p-3 cursor-pointer flex flex-col gap-2 bg-background ${inCart ? 'border-primary' : 'border-border'}`}
+                      className={`sneaker-card border rounded-none p-3 flex flex-col gap-2 bg-background ${inCart ? 'border-primary' : 'border-border'}`}
                     >
                       {/* Image */}
                       <div className="aspect-square w-full overflow-hidden bg-secondary/20 flex items-center justify-center">
@@ -278,15 +347,30 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
                         )}
                       </div>
 
-                      <div className="flex items-center justify-between pt-1 border-t border-border/40">
-                        <span className="font-display font-black text-base text-primary">{formatCurrency(price)}</span>
-                        <span className="text-[10px] font-mono text-muted-foreground">
-                          {variant.stock_quantity} pares
-                        </span>
+                      <div className="flex items-center justify-between pt-1 border-t border-border/40 mt-auto">
+                        <div className="flex flex-col">
+                          <span className="font-display font-black text-sm text-primary">{formatCurrency(price)}</span>
+                          <span className="text-[9px] font-mono text-muted-foreground">
+                            {variant.stock_quantity} pares
+                          </span>
+                        </div>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="outline"
+                          className="h-8 w-8 rounded-none border-primary text-primary hover:bg-primary hover:text-primary-foreground bg-transparent cursor-pointer shrink-0"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            addToCart(variant)
+                          }}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
                       </div>
 
                       {inCart && (
-                        <div className="text-[10px] font-mono font-bold text-primary bg-primary/10 text-center py-0.5">
+                        <div className="text-[10px] font-mono font-bold text-primary bg-primary/10 text-center py-0.5 mt-1">
                           EN CARRITO: {inCart.quantity}
                         </div>
                       )}
@@ -323,36 +407,109 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
           ) : (
             <ScrollArea className="h-full">
               <div className="divide-y divide-border">
-                {cart.map(item => (
-                  <div key={item.variant_id} className="p-3.5 flex gap-3 hover:bg-background/80 transition-colors">
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-display font-bold text-xs uppercase text-foreground truncate">{item.name}</h4>
-                      <div className="text-[10px] font-mono text-muted-foreground">{item.sku}</div>
-                      <div className="font-display font-black text-sm text-primary mt-1">{formatCurrency(item.price)} c/u</div>
-                    </div>
+                {cart.map(item => {
+                  const effectiveUnitPrice = item.price - (item.discount_amount / item.quantity)
+                  const isLoss = effectiveUnitPrice < item.cost
 
-                    <div className="flex flex-col items-end justify-between">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-destructive hover:bg-destructive/10 cursor-pointer"
-                        onClick={() => removeFromCart(item.variant_id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                  return (
+                    <div key={item.variant_id} className="p-3.5 flex flex-col gap-2 hover:bg-background/80 transition-colors">
+                      <div className="flex gap-3">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-display font-bold text-xs uppercase text-foreground truncate">{item.name}</h4>
+                          <div className="text-[10px] font-mono text-muted-foreground">{item.sku}</div>
+                          <div className="font-display font-black text-sm text-primary mt-1">
+                            {formatCurrency(item.price)} c/u
+                          </div>
+                        </div>
 
-                      <div className="flex items-center gap-1 border border-border bg-background">
-                        <Button variant="ghost" size="icon" className="h-6 w-6 cursor-pointer" onClick={() => updateQuantity(item.variant_id, -1)}>
-                          <Minus className="h-3 w-3" />
-                        </Button>
-                        <span className="w-6 text-center font-mono text-xs font-bold">{item.quantity}</span>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 cursor-pointer" onClick={() => updateQuantity(item.variant_id, 1)}>
-                          <Plus className="h-3 w-3" />
-                        </Button>
+                        <div className="flex flex-col items-end justify-between gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-destructive hover:bg-destructive/10 cursor-pointer"
+                            onClick={() => removeFromCart(item.variant_id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+
+                          <div className="flex items-center gap-1 border border-border bg-background">
+                            <Button variant="ghost" size="icon" className="h-6 w-6 cursor-pointer" onClick={() => updateQuantity(item.variant_id, -1)}>
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="w-6 text-center font-mono text-xs font-bold">{item.quantity}</span>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 cursor-pointer" onClick={() => updateQuantity(item.variant_id, 1)}>
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Discount Controls */}
+                      <div className="flex flex-col gap-1.5 p-2 bg-secondary/10 border border-border/60">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-mono text-muted-foreground">DESCUENTO:</span>
+                          <div className="flex items-center gap-1.5">
+                            <div className="flex border border-border h-6 overflow-hidden">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateDiscount(item.variant_id, item.discount_val, 'percentage')}
+                                className={`px-2 text-[10px] font-mono font-bold ${item.discount_type === 'percentage' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted text-muted-foreground'}`}
+                              >
+                                %
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateDiscount(item.variant_id, item.discount_val, 'fixed')}
+                                className={`px-2 text-[10px] font-mono font-bold ${item.discount_type === 'fixed' ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted text-muted-foreground'}`}
+                              >
+                                C$
+                              </button>
+                            </div>
+                            <Input
+                              type="number"
+                              min="0"
+                              placeholder="0"
+                              className="h-6 w-20 text-xs px-2 rounded-none font-mono"
+                              value={item.discount_val || ''}
+                              onChange={(e) => {
+                                const val = Math.max(0, Number(e.target.value) || 0)
+                                handleUpdateDiscount(item.variant_id, val, item.discount_type)
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        {item.discount_amount > 0 && (
+                          <div className="flex justify-between text-[10px] font-mono text-muted-foreground border-t border-border/40 pt-1">
+                            <span>TOTAL DESCUENTO:</span>
+                            <span className="text-destructive font-bold">-{formatCurrency(item.discount_amount)}</span>
+                          </div>
+                        )}
+
+                        {/* Margin warning & loss confirmation */}
+                        {isLoss && (
+                          <div className="mt-1 p-2 bg-destructive/15 border border-destructive/20 text-destructive text-[10px] leading-tight space-y-1.5">
+                            <div className="flex items-start gap-1">
+                              <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-destructive" />
+                              <span>
+                                El descuento aplicado deja el precio de venta ({formatCurrency(effectiveUnitPrice)}) por debajo de su costo de compra ({formatCurrency(item.cost)}).
+                              </span>
+                            </div>
+                            <label className="flex items-center gap-1.5 cursor-pointer font-bold select-none text-foreground pt-1">
+                              <input
+                                type="checkbox"
+                                checked={item.confirmedLoss}
+                                onChange={(e) => handleConfirmLoss(item.variant_id, e.target.checked)}
+                                className="h-3.5 w-3.5 accent-primary cursor-pointer"
+                              />
+                              <span>Confirmar venta con pérdida</span>
+                            </label>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </ScrollArea>
           )}
@@ -393,7 +550,7 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
 
           <Button
             className="w-full h-12 text-base font-display font-black uppercase tracking-widest shadow-lg shadow-primary/20 cursor-pointer"
-            disabled={cart.length === 0 || isProcessing}
+            disabled={cart.length === 0 || isProcessing || hasUnconfirmedLoss}
             onClick={handleCheckout}
             style={{ color: 'hsl(var(--primary-foreground))' }}
           >

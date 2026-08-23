@@ -48,6 +48,7 @@ export default async function VentaDetallePage({ params }: PageProps) {
         quantity,
         unit_price,
         discount_amount,
+        discount_type,
         total,
         variant:product_variants(
           id,

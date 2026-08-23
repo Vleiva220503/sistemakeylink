@@ -61,6 +61,7 @@ interface SaleItem {
   quantity: number
   unit_price: number
   discount_amount: number
+  discount_type: string | null
   total: number
   variant: SaleVariant | null
 }
@@ -192,6 +193,10 @@ export function SaleDetailClient({ sale, isAdmin, currentCashierName }: SaleDeta
             quantity: item.quantity,
             unitPrice: Number(item.unit_price),
             discount: Number(item.discount_amount ?? 0),
+            discountType: item.discount_type as any,
+            discountVal: item.discount_type === 'percentage' && Number(item.unit_price) > 0 && item.quantity > 0
+              ? Math.round((Number(item.discount_amount) / (Number(item.unit_price) * item.quantity)) * 100)
+              : Number(item.discount_amount ?? 0)
           }
         }),
         subtotal: Number(sale.subtotal),
@@ -466,7 +471,12 @@ export function SaleDetailClient({ sale, isAdmin, currentCashierName }: SaleDeta
                         <span className="font-mono font-bold text-sm">{item.quantity}</span>
                       </td>
                       <td className="p-3 text-right font-mono text-sm">
-                        {formatCurrency(Number(item.unit_price))}
+                        <div>{formatCurrency(Number(item.unit_price))}</div>
+                        {Number(item.discount_amount) > 0 && (
+                          <div className="text-[10px] text-destructive font-sans">
+                            -{formatCurrency(Number(item.discount_amount))} {item.discount_type === 'percentage' ? '(%)' : '(Fijo)'}
+                          </div>
+                        )}
                       </td>
                       <td className="p-3 pr-4 text-right font-mono font-bold text-sm">
                         {formatCurrency(Number(item.total))}

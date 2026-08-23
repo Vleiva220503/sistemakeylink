@@ -57,6 +57,7 @@ export default async function VentasPage() {
       quality,
       price_override,
       stock_quantity,
+      cost,
       product:products(
         id,
         name,
@@ -71,7 +72,6 @@ export default async function VentasPage() {
     .eq('is_active', true)
     .gt('stock_quantity', 0)
     .order('sku', { ascending: true })
-    .limit(250)
 
   const variants = (variantRows as any[]) || []
 

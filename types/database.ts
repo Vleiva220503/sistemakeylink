@@ -394,6 +394,7 @@ export interface SaleItem {
   unit_price: number
   unit_cost: number   // Hidden from cajeros via RLS view
   discount_amount: number
+  discount_type: DiscountType | null
   total: number
   created_at: string
 }
@@ -598,6 +599,7 @@ export interface SaleItemInput {
   quantity: number
   unit_price: number
   discount_amount?: number
+  discount_type?: DiscountType | null
 }
 
 export interface PaymentInput {

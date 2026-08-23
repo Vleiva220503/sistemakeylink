@@ -10,6 +10,8 @@ export interface InvoiceItem {
   quantity: number
   unitPrice: number
   discount: number        // per-line discount amount
+  discountType?: 'percentage' | 'fixed' | null
+  discountVal?: number
 }
 
 export interface InvoiceData {
@@ -178,9 +180,15 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<void> {
 
   const bodyRows = data.items.map(item => {
     const lineTotal = (item.unitPrice * item.quantity) - item.discount
+    let descName = item.name
+    if (item.discount > 0) {
+      const typeStr = item.discountType === 'percentage' ? `%` : 'fixed'
+      const detailStr = item.discountType === 'percentage' ? `${item.discountVal}%` : formatNIO(item.discount)
+      descName += `\n(Desc. ${detailStr})`
+    }
     if (hasTalla) {
       return [
-        { content: item.name,                                          styles: { halign: 'left'   as const } },
+        { content: descName,                                           styles: { halign: 'left'   as const } },
         { content: item.talla || '—',                                  styles: { halign: 'center' as const, fontStyle: 'bold' as const, textColor: BRAND.accent } },
         { content: item.tallaDescription || '—',                       styles: { halign: 'left'   as const, textColor: BRAND.gray, fontSize: 7.5 } },
         { content: item.sku,                                           styles: { halign: 'left'   as const, textColor: BRAND.gray, fontSize: 7 } },
@@ -190,7 +198,7 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<void> {
       ]
     } else {
       return [
-        { content: item.name,                                          styles: { halign: 'left'   as const } },
+        { content: descName,                                           styles: { halign: 'left'   as const } },
         { content: item.sku,                                           styles: { halign: 'left'   as const, textColor: BRAND.gray, fontSize: 7 } },
         { content: String(item.quantity),                              styles: { halign: 'center' as const } },
         { content: formatNIO(item.unitPrice),                          styles: { halign: 'right'  as const } },

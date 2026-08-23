@@ -228,3 +228,20 @@
 .custom-horizontal-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #C63D0E !important;
 }
+
+/* Sonner Toaster Mobile Responsiveness */
+@media (max-width: 640px) {
+  [data-sonner-toaster] {
+    --mobile-offset: 16px !important;
+    position: fixed !important;
+    bottom: var(--mobile-offset) !important;
+    top: auto !important;
+    left: var(--mobile-offset) !important;
+    right: var(--mobile-offset) !important;
+    width: auto !important;
+  }
+  [data-sonner-toaster] [data-toast] {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}

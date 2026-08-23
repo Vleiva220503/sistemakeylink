@@ -12,6 +12,7 @@ interface CreateSalePayload {
     quantity: number
     unit_price: number
     discount_amount?: number
+    discount_type?: DiscountType | null
   }>
   payments: Array<{
     method: 'cash' | 'card' | 'transfer' | 'mobile_payment' | 'other'
@@ -31,12 +32,13 @@ export async function createSale(payload: CreateSalePayload) {
 
   try {
     // Sanitizar items para que coincidan exactamente con la estructura de sale_item_input
-    // que espera PostgreSQL: (variant_id, quantity, unit_price, discount_amount)
+    // que espera PostgreSQL: (variant_id, quantity, unit_price, discount_amount, discount_type)
     const sanitizedItems = payload.items.map(item => ({
       variant_id: item.variant_id,
       quantity: Number(item.quantity),
       unit_price: Number(item.unit_price),
-      discount_amount: Number(item.discount_amount || 0)
+      discount_amount: Number(item.discount_amount || 0),
+      discount_type: item.discount_type || null
     }))
 
     // Sanitizar pagos para que coincidan exactamente con payment_input
