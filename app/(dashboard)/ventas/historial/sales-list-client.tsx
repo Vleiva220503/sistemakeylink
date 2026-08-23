@@ -149,6 +149,8 @@ export function SalesListClient({ initialSales, isAdmin = false }: SalesListClie
       }),
       cajero: s.cajero?.full_name || s.register?.name || 'Cajero',
       cliente: s.customer?.name || 'Cliente General',
+      talla: '—',
+      tallaDescription: '',
       total: Number(s.total),
       'método de pago': s.payments && s.payments.length > 0
         ? s.payments.map((p) => p.method === 'cash' ? 'Efectivo' : 'Tarjeta').join(' + ')
@@ -261,157 +263,205 @@ export function SalesListClient({ initialSales, isAdmin = false }: SalesListClie
             </p>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nro. Venta</TableHead>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Caja</TableHead>
-                <TableHead className="text-center">Ítems</TableHead>
-                <TableHead className="text-right">Subtotal</TableHead>
-                <TableHead className="text-right">Desc.</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right">Pendiente</TableHead>
-                <TableHead>Estado</TableHead>
-                {isAdmin && <TableHead className="text-right">Acciones</TableHead>}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            {/* Mobile Card View (< 768px) */}
+            <div className="block md:hidden space-y-3">
               {filteredSales.map((s) => {
                 const status = STATUS_MAP[s.status] || {
                   label: s.status,
                   variant: 'outline' as const,
                 }
+                const totalUnits = s.sale_items?.reduce((sum, item) => sum + item.quantity, 0) || 0
+
                 return (
-                  <TableRow key={s.id} className={s.status === 'cancelled' ? 'opacity-60 bg-muted/20' : ''}>
-                    <TableCell className={`font-mono text-xs font-semibold ${s.status === 'cancelled' ? 'line-through' : ''}`}>
-                      <Link
-                        href={`/ventas/historial/${s.id}`}
-                        className="flex items-center gap-1 hover:text-primary transition-colors"
-                        title="Ver detalle de venta"
-                      >
-                        {s.sale_number}
-                        <Eye className="h-3 w-3 opacity-40 group-hover:opacity-100" />
-                      </Link>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {new Date(s.created_at).toLocaleDateString('es-NI', {
-                          timeZone: 'America/Managua',
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
+                  <div key={s.id} className={`bg-background border border-border p-3.5 space-y-2.5 text-xs shadow-sm ${s.status === 'cancelled' ? 'opacity-60' : ''}`}>
+                    <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2">
+                      <div>
+                        <Link
+                          href={`/ventas/historial/${s.id}`}
+                          className="font-mono font-bold text-primary text-sm flex items-center gap-1 hover:underline"
+                        >
+                          {s.sale_number}
+                          <Eye className="h-3.5 w-3.5 text-primary" />
+                        </Link>
+                        <p className="text-muted-foreground font-mono text-[11px]">
+                          {new Date(s.created_at).toLocaleDateString('es-NI', {
+                            timeZone: 'America/Managua',
+                            day: '2-digit', month: 'short', year: 'numeric',
+                          })}
+                        </p>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {s.customer?.name || 'Cliente General'}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {s.register?.name}
-                    </TableCell>
-                    <TableCell className="text-center text-sm">
-                      {s.sale_items?.reduce((sum, item) => sum + item.quantity, 0) || 0}
-                    </TableCell>
-                    <TableCell className="text-right text-sm">
-                      {formatCurrency(Number(s.subtotal))}
-                    </TableCell>
-                    <TableCell className="text-right text-sm text-destructive">
-                      {Number(s.discount_amount) > 0
-                        ? `-${formatCurrency(Number(s.discount_amount))}`
-                        : '—'}
-                    </TableCell>
-                    <TableCell className="text-right font-bold">
-                      {formatCurrency(Number(s.total))}
-                    </TableCell>
-                    <TableCell
-                      className={`text-right text-sm font-medium ${
-                        Number(s.amount_pending) > 0
-                          ? 'text-warning'
-                          : 'text-muted-foreground'
-                      }`}
-                    >
-                      {Number(s.amount_pending) > 0
-                        ? formatCurrency(Number(s.amount_pending))
-                        : '—'}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={status.variant}>{status.label}</Badge>
-                    </TableCell>
-                    {isAdmin && (
-                      <TableCell className="text-right">
-                        {s.status !== 'cancelled' ? (
-                          <AlertDialog>
-                            <AlertDialogTrigger
-                              render={
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="text-destructive hover:bg-destructive/10"
-                                  disabled={isPending}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              }
-                            />
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle className="flex items-center gap-2 text-destructive">
-                                  <ShieldAlert className="h-5 w-5" />
-                                  ¿Anular Venta {s.sale_number}?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription render={<div />} className="space-y-2 text-sm text-muted-foreground">
-                                  <p>
-                                    Esta acción es irreversible y realizará las siguientes operaciones:
-                                  </p>
-                                  <ul className="list-disc list-inside text-xs space-y-1 bg-secondary/35 p-3.5 border rounded-lg font-sans">
-                                    <li>Marcará el estado de la venta como <strong>Cancelada</strong>.</li>
-                                    <li>Reincorporará los {s.sale_items?.reduce((sum, item) => sum + item.quantity, 0)} pares al stock físico disponible.</li>
-                                    <li>Registrará el movimiento de reversión en el historial de inventario.</li>
-                                    <li>Si se pagó en efectivo, restará el monto total de la caja del día.</li>
-                                  </ul>
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => {
-                                    startTransition(async () => {
-                                      const res = await voidSale(s.id)
-                                      if (res?.error) {
-                                        toast.error(res.error)
-                                      } else {
-                                        toast.success(`Venta ${s.sale_number} anulada correctamente y stock restaurado.`)
-                                        router.refresh()
-                                      }
-                                    })
-                                  }}
-                                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                                >
-                                  {isPending ? (
-                                    <>
-                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                      Anulando...
-                                    </>
-                                  ) : (
-                                    'Anular Venta'
-                                  )}
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        ) : (
-                          <span className="text-xs text-muted-foreground italic">Anulada</span>
-                        )}
-                      </TableCell>
-                    )}
-                  </TableRow>
+                      <Badge variant={status.variant} className="shrink-0">{status.label}</Badge>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-muted-foreground font-mono text-[11px]">
+                      <div>
+                        <span className="text-foreground font-semibold">Cliente:</span> {s.customer?.name || 'Cliente General'}
+                      </div>
+                      <div>
+                        <span className="text-foreground font-semibold">Ítems:</span> {totalUnits} uds
+                      </div>
+                      <div>
+                        <span className="text-foreground font-semibold">Caja:</span> {s.register?.name || '—'}
+                      </div>
+                      <div>
+                        <span className="text-foreground font-semibold">Total:</span> <span className="font-bold text-foreground">{formatCurrency(Number(s.total))}</span>
+                      </div>
+                    </div>
+                  </div>
                 )
               })}
-            </TableBody>
-          </Table>
+            </div>
+
+            {/* Desktop Table View (>= 768px) */}
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="whitespace-nowrap">Nro. Venta</TableHead>
+                    <TableHead className="whitespace-nowrap">Fecha</TableHead>
+                    <TableHead className="whitespace-nowrap">Cliente</TableHead>
+                    <TableHead className="whitespace-nowrap">Caja</TableHead>
+                    <TableHead className="text-center whitespace-nowrap">Ítems</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Subtotal</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Desc.</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Total</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Pendiente</TableHead>
+                    <TableHead className="whitespace-nowrap">Estado</TableHead>
+                    {isAdmin && <TableHead className="text-right whitespace-nowrap">Acciones</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredSales.map((s) => {
+                    const status = STATUS_MAP[s.status] || {
+                      label: s.status,
+                      variant: 'outline' as const,
+                    }
+                    return (
+                      <TableRow key={s.id} className={s.status === 'cancelled' ? 'opacity-60 bg-muted/20' : ''}>
+                        <TableCell className={`font-mono text-xs font-semibold whitespace-nowrap ${s.status === 'cancelled' ? 'line-through' : ''}`}>
+                          <Link
+                            href={`/ventas/historial/${s.id}`}
+                            className="flex items-center gap-1 hover:text-primary transition-colors"
+                            title="Ver detalle de venta"
+                          >
+                            {s.sale_number}
+                            <Eye className="h-3 w-3 opacity-40 group-hover:opacity-100" />
+                          </Link>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                          <div className="flex items-center gap-1 font-mono">
+                            <Calendar className="h-3 w-3" />
+                            {new Date(s.created_at).toLocaleDateString('es-NI', {
+                              timeZone: 'America/Managua',
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                            })}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm whitespace-nowrap">
+                          {s.customer?.name || 'Cliente General'}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                          {s.register?.name}
+                        </TableCell>
+                        <TableCell className="text-center text-sm font-mono whitespace-nowrap">
+                          {s.sale_items?.reduce((sum, item) => sum + item.quantity, 0) || 0}
+                        </TableCell>
+                        <TableCell className="text-right text-sm font-mono whitespace-nowrap">
+                          {formatCurrency(Number(s.subtotal))}
+                        </TableCell>
+                        <TableCell className="text-right text-sm text-destructive font-mono whitespace-nowrap">
+                          {Number(s.discount_amount) > 0
+                            ? `-${formatCurrency(Number(s.discount_amount))}`
+                            : '—'}
+                        </TableCell>
+                        <TableCell className="text-right font-bold font-mono whitespace-nowrap">
+                          {formatCurrency(Number(s.total))}
+                        </TableCell>
+                        <TableCell className="text-right text-sm font-mono text-muted-foreground whitespace-nowrap">
+                          {Number(s.amount_pending) > 0
+                            ? formatCurrency(Number(s.amount_pending))
+                            : '—'}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <Badge variant={status.variant}>{status.label}</Badge>
+                        </TableCell>
+                        {isAdmin && (
+                          <TableCell className="text-right whitespace-nowrap">
+                            {s.status !== 'cancelled' ? (
+                              <AlertDialog>
+                                <AlertDialogTrigger
+                                  render={
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="text-destructive hover:bg-destructive/10"
+                                      disabled={isPending}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  }
+                                />
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                                      <ShieldAlert className="h-5 w-5" />
+                                      ¿Anular Venta {s.sale_number}?
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription render={<div />} className="space-y-2 text-sm text-muted-foreground">
+                                      <p>
+                                        Esta acción es irreversible y realizará las siguientes operaciones:
+                                      </p>
+                                      <ul className="list-disc list-inside text-xs space-y-1 bg-secondary/35 p-3.5 border rounded-lg font-sans">
+                                        <li>Marcará el estado de la venta como <strong>Cancelada</strong>.</li>
+                                        <li>Reincorporará los {s.sale_items?.reduce((sum, item) => sum + item.quantity, 0)} pares al stock físico disponible.</li>
+                                        <li>Registrará el movimiento de reversión en el historial de inventario.</li>
+                                        <li>Si se pagó en efectivo, restará el monto total de la caja del día.</li>
+                                      </ul>
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => {
+                                        startTransition(async () => {
+                                          const res = await voidSale(s.id)
+                                          if (res?.error) {
+                                            toast.error(res.error)
+                                          } else {
+                                            toast.success(`Venta ${s.sale_number} anulada correctamente y stock restaurado.`)
+                                            router.refresh()
+                                          }
+                                        })
+                                      }}
+                                      className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                                    >
+                                      {isPending ? (
+                                        <>
+                                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                          Anulando...
+                                        </>
+                                      ) : (
+                                        'Anular Venta'
+                                      )}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            ) : (
+                              <span className="text-xs text-muted-foreground italic">Anulada</span>
+                            )}
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
       </CardContent>
     </Card>

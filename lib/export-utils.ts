@@ -33,6 +33,8 @@ export interface SaleExportRow {
   fecha: string
   cajero: string
   cliente: string
+  talla: string
+  tallaDescription: string
   total: number
   'método de pago': string
   estado: string
@@ -51,12 +53,12 @@ const BRAND = {
   text: [26, 25, 23] as [number, number, number],           // Charcoal #1A1917
 }
 
-function formatHNL(amount: number): string {
-  return `L ${Number(amount).toLocaleString('es-HN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+function formatNIO(amount: number): string {
+  return `C$ ${Number(amount).toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 function nowLabel(): string {
-  return new Date().toLocaleDateString('es-HN', {
+  return new Date().toLocaleDateString('es-NI', {
     year: 'numeric', month: 'long', day: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
@@ -151,7 +153,7 @@ export async function exportInventoryPDF(rows: InventoryExportRow[], isAdmin: bo
   doc.setTextColor(...BRAND.accent)
   doc.text(
     isAdmin
-      ? `${rows.length} variantes  |  Stock total: ${totalStock} uds  |  Valor en inventario: ${formatHNL(totalValue)}`
+      ? `${rows.length} variantes  |  Stock total: ${totalStock} uds  |  Valor en inventario: ${formatNIO(totalValue)}`
       : `${rows.length} variantes  |  Stock total: ${totalStock} uds`,
     margin + 6, startY + 6.5,
   )
@@ -170,8 +172,8 @@ export async function exportInventoryPDF(rows: InventoryExportRow[], isAdmin: bo
         r.categoria,
         r.marca,
         r.stock,
-        formatHNL(r.costo),
-        formatHNL(r.precio),
+        formatNIO(r.costo),
+        formatNIO(r.precio),
         r.estado,
       ]
     } else {
@@ -291,7 +293,7 @@ export async function exportSalesPDF(
   doc.text('TOTAL VENDIDO', margin + 5, metaY + 5.5)
   doc.setFontSize(13)
   doc.setTextColor(...BRAND.white)
-  doc.text(formatHNL(summary.totalVentas), margin + 5, metaY + 13)
+  doc.text(formatNIO(summary.totalVentas), margin + 5, metaY + 13)
 
   // Box 2 — # ventas
   doc.setFillColor(...BRAND.lightGray)
@@ -307,13 +309,15 @@ export async function exportSalesPDF(
 
   autoTable(doc, {
     startY: metaY + boxH + 8,
-    head: [['N° Venta', 'Fecha', 'Cajero/Caja', 'Cliente', 'Total', 'Método de Pago', 'Estado']],
+    head: [['N° Venta', 'Fecha', 'Cajero/Caja', 'Cliente', 'Talla', 'Desc. Talla', 'Total', 'Método de Pago', 'Estado']],
     body: rows.map((r) => [
       r['N° venta'],
       r.fecha,
       r.cajero,
       r.cliente,
-      formatHNL(r.total),
+      r.talla,
+      r.tallaDescription,
+      formatNIO(r.total),
       r['método de pago'],
       r.estado,
     ]),
@@ -321,8 +325,8 @@ export async function exportSalesPDF(
     tableWidth: contentW,
     styles: {
       font: 'helvetica',
-      fontSize: 8,
-      cellPadding: { top: 3, bottom: 3, left: 4, right: 4 },
+      fontSize: 7,
+      cellPadding: { top: 2, bottom: 2, left: 2.5, right: 2.5 },
       textColor: BRAND.text,
       lineColor: BRAND.border,
       lineWidth: 0.2,
@@ -331,17 +335,19 @@ export async function exportSalesPDF(
       fillColor: BRAND.primary,
       textColor: BRAND.white,
       fontStyle: 'bold',
-      fontSize: 7.5,
+      fontSize: 6.5,
     },
     alternateRowStyles: { fillColor: BRAND.lightGray },
     columnStyles: {
-      0: { cellWidth: 22 },
-      1: { cellWidth: 30 },
-      2: { cellWidth: 30 },
-      3: { cellWidth: 32 },
-      4: { cellWidth: 24, halign: 'right' },
-      5: { cellWidth: 24 },
-      6: { cellWidth: 'auto', halign: 'center' },
+      0: { cellWidth: 15 },
+      1: { cellWidth: 20 },
+      2: { cellWidth: 20 },
+      3: { cellWidth: 20 },
+      4: { cellWidth: 12, halign: 'center' },
+      5: { cellWidth: 22 },
+      6: { cellWidth: 22, halign: 'right' },
+      7: { cellWidth: 20 },
+      8: { cellWidth: 'auto', halign: 'center' },
     },
     didDrawPage: (data: any) => {
       const pageCount = (doc as any).internal.getNumberOfPages()
@@ -403,7 +409,7 @@ export async function exportTopProductsPDF(
       r.categoria,
       r.marca,
       r.unidades,
-      formatHNL(r.monto)
+      formatNIO(r.monto)
     ]),
     margin: { left: margin, right: margin },
     tableWidth: contentW,
@@ -570,7 +576,7 @@ export async function exportCashMovementsPDF(
   doc.setFont('helvetica', 'italic')
   doc.setFontSize(8)
   doc.setTextColor(...BRAND.gray)
-  doc.text(`Período: ${summary.dateRange}  |  Cambio Neto en Efectivo: ${formatHNL(summary.netChange)}`, margin, startY)
+  doc.text(`Período: ${summary.dateRange}  |  Cambio Neto en Efectivo: ${formatNIO(summary.netChange)}`, margin, startY)
 
   autoTable(doc, {
     startY: startY + 6,
@@ -579,7 +585,7 @@ export async function exportCashMovementsPDF(
       r.fecha,
       r.caja,
       r.tipo,
-      formatHNL(r.monto),
+      formatNIO(r.monto),
       r.descripcion || '—',
       r.usuario
     ]),

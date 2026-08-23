@@ -176,20 +176,9 @@ export function MovementsListClient({ initialMovements }: MovementsListClientPro
             </p>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Producto / Variante</TableHead>
-                <TableHead className="text-center">Cantidad</TableHead>
-                <TableHead className="text-center">Stock Anterior</TableHead>
-                <TableHead className="text-center">Stock Posterior</TableHead>
-                <TableHead>Referencia</TableHead>
-                <TableHead>Notas</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            {/* Mobile Card View (< 768px) */}
+            <div className="block md:hidden space-y-3">
               {filteredMovements.map((m) => {
                 const mType = MOVEMENT_TYPES[m.type] || {
                   label: m.type,
@@ -197,83 +186,139 @@ export function MovementsListClient({ initialMovements }: MovementsListClientPro
                   icon: Activity,
                 }
                 const Icon = mType.icon
+                const isPositive = m.quantity > 0
+
                 return (
-                  <TableRow key={m.id}>
-                    <TableCell className="text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {new Date(m.created_at).toLocaleDateString('es', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                  <div key={m.id} className="bg-background border border-border p-3.5 space-y-2.5 text-xs shadow-sm">
+                    <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2">
+                      <div>
+                        <p className="font-bold text-foreground text-sm">{m.variant?.product?.name || '—'}</p>
+                        <p className="text-muted-foreground font-mono text-[11px]">
+                          SKU: {m.variant?.sku} · {new Date(m.created_at).toLocaleDateString('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </p>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <div
-                        className={`flex items-center gap-1.5 font-medium ${mType.color}`}
-                      >
-                        <Icon className="h-4 w-4" />
+                      <div className={`flex items-center gap-1 font-bold text-xs shrink-0 ${mType.color}`}>
+                        <Icon className="h-3.5 w-3.5" />
                         {mType.label}
                       </div>
-                    </TableCell>
-                    <TableCell>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-muted-foreground font-mono text-[11px]">
                       <div>
-                        <p className="font-medium text-sm">
-                          {m.variant?.product?.name || '—'}
-                          {m.variant?.product?.category?.name && (
-                            <span className="text-xs font-bold text-primary ml-1.5">
-                              (Talla: {m.variant.product.category.name})
-                            </span>
-                          )}
-                        </p>
-                        <p className="text-xs text-muted-foreground font-mono">
-                          {m.variant?.sku}
-                        </p>
-                        {(m.variant?.size || m.variant?.color) && (
-                          <div className="flex gap-1 mt-0.5">
-                            {m.variant?.size && (
-                              <Badge variant="outline" className="text-xs px-1 py-0">
-                                {m.variant.size}
-                              </Badge>
-                            )}
-                            {m.variant?.color && (
-                              <Badge variant="outline" className="text-xs px-1 py-0">
-                                {m.variant.color}
-                              </Badge>
-                            )}
-                          </div>
-                        )}
+                        <span className="text-foreground font-semibold">Talla:</span> {m.variant?.product?.category?.name || '—'}
                       </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <span
-                        className={`font-bold text-sm ${
-                          m.quantity > 0 ? 'text-success' : 'text-destructive'
-                        }`}
-                      >
-                        {m.quantity > 0 ? `+${m.quantity}` : m.quantity}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-center text-sm text-muted-foreground">
-                      {m.stock_before}
-                    </TableCell>
-                    <TableCell className="text-center font-semibold text-sm">
-                      {m.stock_after}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground capitalize">
-                      {m.reference_type || '—'}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">
-                      {m.notes || '—'}
-                    </TableCell>
-                  </TableRow>
+                      <div>
+                        <span className="text-foreground font-semibold">Cantidad:</span>{' '}
+                        <span className={`font-bold ${isPositive ? 'text-success' : 'text-destructive'}`}>
+                          {isPositive ? `+${m.quantity}` : m.quantity} uds
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-foreground font-semibold">Stock Antes:</span> {m.stock_before}
+                      </div>
+                      <div>
+                        <span className="text-foreground font-semibold">Stock Desp:</span> <span className="font-bold text-foreground">{m.stock_after}</span>
+                      </div>
+                    </div>
+
+                    {m.notes && (
+                      <p className="text-muted-foreground italic text-[11px] border-t border-border/40 pt-1.5">
+                        {m.notes}
+                      </p>
+                    )}
+                  </div>
                 )
               })}
-            </TableBody>
-          </Table>
+            </div>
+
+            {/* Desktop Table View (>= 768px) */}
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="whitespace-nowrap">Fecha</TableHead>
+                    <TableHead className="whitespace-nowrap">Tipo</TableHead>
+                    <TableHead className="whitespace-nowrap">Producto / Variante</TableHead>
+                    <TableHead className="text-center whitespace-nowrap">Cantidad</TableHead>
+                    <TableHead className="text-center whitespace-nowrap">Stock Anterior</TableHead>
+                    <TableHead className="text-center whitespace-nowrap">Stock Posterior</TableHead>
+                    <TableHead className="whitespace-nowrap">Referencia</TableHead>
+                    <TableHead className="whitespace-nowrap">Notas</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredMovements.map((m) => {
+                    const mType = MOVEMENT_TYPES[m.type] || {
+                      label: m.type,
+                      color: 'text-foreground',
+                      icon: Activity,
+                    }
+                    const Icon = mType.icon
+                    return (
+                      <TableRow key={m.id}>
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                          <div className="flex items-center gap-1 font-mono">
+                            <Calendar className="h-3 w-3" />
+                            {new Date(m.created_at).toLocaleDateString('es', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </div>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <div
+                            className={`flex items-center gap-1.5 font-medium ${mType.color}`}
+                          >
+                            <Icon className="h-4 w-4" />
+                            {mType.label}
+                          </div>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <div>
+                            <p className="font-medium text-sm">
+                              {m.variant?.product?.name || '—'}
+                              {m.variant?.product?.category?.name && (
+                                <span className="text-xs font-bold text-primary ml-1.5">
+                                  (Talla: {m.variant.product.category.name})
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-xs text-muted-foreground font-mono">
+                              {m.variant?.sku}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center whitespace-nowrap font-mono">
+                          <span
+                            className={`font-bold text-sm ${
+                              m.quantity > 0 ? 'text-success' : 'text-destructive'
+                            }`}
+                          >
+                            {m.quantity > 0 ? `+${m.quantity}` : m.quantity}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-center text-sm text-muted-foreground font-mono whitespace-nowrap">
+                          {m.stock_before}
+                        </TableCell>
+                        <TableCell className="text-center font-semibold text-sm font-mono whitespace-nowrap">
+                          {m.stock_after}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground capitalize whitespace-nowrap">
+                          {m.reference_type || '—'}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate whitespace-nowrap">
+                          {m.notes || '—'}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
       </CardContent>
     </Card>

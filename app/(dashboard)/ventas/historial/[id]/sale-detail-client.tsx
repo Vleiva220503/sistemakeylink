@@ -430,10 +430,11 @@ export function SaleDetailClient({ sale, isAdmin, currentCashierName }: SaleDeta
               <thead>
                 <tr className="border-b bg-muted/30">
                   <th className="text-left text-xs font-medium text-muted-foreground p-3 pl-4">Producto / Variante</th>
+                  <th className="text-left text-xs font-medium text-muted-foreground p-3">Talla</th>
+                  <th className="text-left text-xs font-medium text-muted-foreground p-3">Desc. Talla</th>
                   <th className="text-left text-xs font-medium text-muted-foreground p-3">SKU</th>
                   <th className="text-center text-xs font-medium text-muted-foreground p-3">Cant.</th>
                   <th className="text-right text-xs font-medium text-muted-foreground p-3">P. Unit.</th>
-                  <th className="text-right text-xs font-medium text-muted-foreground p-3">Desc.</th>
                   <th className="text-right text-xs font-medium text-muted-foreground p-3 pr-4">Total</th>
                 </tr>
               </thead>
@@ -450,15 +451,13 @@ export function SaleDetailClient({ sale, isAdmin, currentCashierName }: SaleDeta
                     <tr key={item.id} className={`border-b last:border-0 ${idx % 2 === 0 ? '' : 'bg-muted/10'} hover:bg-muted/20 transition-colors`}>
                       <td className="p-3 pl-4">
                         <p className="font-medium text-sm">{productName}</p>
-                        <div className="flex flex-col gap-0.5 mt-0.5">
-                          {item.variant?.product?.category?.name && (
-                            <p className="text-xs text-primary font-semibold">
-                              Talla Padre: {item.variant.product.category.name}
-                              {item.variant.product.category.description ? ` (${item.variant.product.category.description})` : ''}
-                            </p>
-                          )}
-                          {attrs && <p className="text-xs text-muted-foreground">{attrs}</p>}
-                        </div>
+                        {attrs && <p className="text-xs text-muted-foreground mt-0.5">{attrs}</p>}
+                      </td>
+                      <td className="p-3">
+                        <span className="font-bold text-primary">{item.variant?.product?.category?.name || '—'}</span>
+                      </td>
+                      <td className="p-3">
+                        <span className="text-muted-foreground text-xs">{item.variant?.product?.category?.description || '—'}</span>
                       </td>
                       <td className="p-3">
                         <span className="font-mono text-xs text-muted-foreground">{item.variant?.sku ?? '—'}</span>
@@ -468,13 +467,6 @@ export function SaleDetailClient({ sale, isAdmin, currentCashierName }: SaleDeta
                       </td>
                       <td className="p-3 text-right font-mono text-sm">
                         {formatCurrency(Number(item.unit_price))}
-                      </td>
-                      <td className="p-3 text-right text-sm">
-                        {Number(item.discount_amount) > 0 ? (
-                          <span className="text-destructive font-mono">-{formatCurrency(Number(item.discount_amount))}</span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
                       </td>
                       <td className="p-3 pr-4 text-right font-mono font-bold text-sm">
                         {formatCurrency(Number(item.total))}

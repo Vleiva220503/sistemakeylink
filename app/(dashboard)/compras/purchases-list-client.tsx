@@ -171,7 +171,7 @@ export function PurchasesListClient({ initialPurchases }: PurchasesListClientPro
       <CardContent>
         {filteredPurchases.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 text-muted-foreground gap-3">
-            <ShoppingBag className="h-10 w-10 opacity-20" />
+            <Package className="h-10 w-10 opacity-20" />
             <p>
               {search || statusFilter !== 'all' || startDate || endDate
                 ? 'No se encontraron compras con los filtros aplicados'
@@ -179,19 +179,9 @@ export function PurchasesListClient({ initialPurchases }: PurchasesListClientPro
             </p>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Referencia</TableHead>
-                <TableHead>Proveedor</TableHead>
-                <TableHead>Fecha Orden</TableHead>
-                <TableHead>Fecha Esperada</TableHead>
-                <TableHead className="text-center">Ítems</TableHead>
-                <TableHead className="text-right">Valor Total</TableHead>
-                <TableHead>Estado</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            {/* Mobile Card View (< 768px) */}
+            <div className="block md:hidden space-y-3">
               {filteredPurchases.map((p) => {
                 const status = STATUS_MAP[p.status] || {
                   label: p.status,
@@ -206,52 +196,116 @@ export function PurchasesListClient({ initialPurchases }: PurchasesListClientPro
                   p.expected_date &&
                   new Date(p.expected_date) < new Date() &&
                   !['received', 'cancelled'].includes(p.status)
+
                 return (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-mono text-xs font-semibold">
-                      {p.reference_number}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {p.supplier?.name || '—'}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {new Date(p.order_date).toLocaleDateString('es')}
+                  <div key={p.id} className="bg-background border border-border p-3.5 space-y-2.5 text-xs shadow-sm">
+                    <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2">
+                      <div>
+                        <p className="font-mono font-bold text-foreground text-sm">{p.reference_number}</p>
+                        <p className="text-muted-foreground font-mono text-[11px]">{p.supplier?.name || '—'}</p>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {p.expected_date ? (
-                        <div
-                          className={`flex items-center gap-1 ${
-                            isLate ? 'text-destructive' : 'text-muted-foreground'
-                          }`}
-                        >
-                          {isLate && <AlertTriangle className="h-3 w-3" />}
-                          <Calendar className="h-3 w-3" />
-                          {new Date(p.expected_date).toLocaleDateString('es')}
-                        </div>
-                      ) : (
-                        '—'
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center text-sm">
-                      <div className="flex items-center justify-center gap-1">
-                        <Package className="h-3 w-3 text-muted-foreground" />
-                        {items.length}
+                      <Badge variant={status.variant} className="shrink-0">{status.label}</Badge>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-muted-foreground font-mono text-[11px]">
+                      <div>
+                        <span className="text-foreground font-semibold">Orden:</span> {new Date(p.order_date).toLocaleDateString('es')}
                       </div>
-                    </TableCell>
-                    <TableCell className="text-right font-bold">
-                      {formatCurrency(orderValue)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={status.variant}>{status.label}</Badge>
-                    </TableCell>
-                  </TableRow>
+                      <div>
+                        <span className="text-foreground font-semibold">Ítems:</span> {items.length} uds
+                      </div>
+                      <div>
+                        <span className="text-foreground font-semibold">Esperada:</span>{' '}
+                        <span className={isLate ? 'text-destructive font-bold' : ''}>
+                          {p.expected_date ? new Date(p.expected_date).toLocaleDateString('es') : '—'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-foreground font-semibold">Total:</span> <span className="font-bold text-foreground">{formatCurrency(orderValue)}</span>
+                      </div>
+                    </div>
+                  </div>
                 )
               })}
-            </TableBody>
-          </Table>
+            </div>
+
+            {/* Desktop Table View (>= 768px) */}
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="whitespace-nowrap">Referencia</TableHead>
+                    <TableHead className="whitespace-nowrap">Proveedor</TableHead>
+                    <TableHead className="whitespace-nowrap">Fecha Orden</TableHead>
+                    <TableHead className="whitespace-nowrap">Fecha Esperada</TableHead>
+                    <TableHead className="text-center whitespace-nowrap">Ítems</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Valor Total</TableHead>
+                    <TableHead className="whitespace-nowrap">Estado</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredPurchases.map((p) => {
+                    const status = STATUS_MAP[p.status] || {
+                      label: p.status,
+                      variant: 'outline' as const,
+                    }
+                    const items = p.purchase_items || []
+                    const orderValue = items.reduce(
+                      (s, i) => s + i.quantity_ordered * i.unit_cost,
+                      0
+                    )
+                    const isLate =
+                      p.expected_date &&
+                      new Date(p.expected_date) < new Date() &&
+                      !['received', 'cancelled'].includes(p.status)
+                    return (
+                      <TableRow key={p.id}>
+                        <TableCell className="font-mono text-xs font-semibold whitespace-nowrap">
+                          {p.reference_number}
+                        </TableCell>
+                        <TableCell className="font-medium whitespace-nowrap">
+                          {p.supplier?.name || '—'}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {new Date(p.order_date).toLocaleDateString('es')}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm whitespace-nowrap">
+                          {p.expected_date ? (
+                            <div
+                              className={`flex items-center gap-1 ${
+                                isLate ? 'text-destructive' : 'text-muted-foreground'
+                              }`}
+                            >
+                              {isLate && <AlertTriangle className="h-3 w-3" />}
+                              <Calendar className="h-3 w-3" />
+                              {new Date(p.expected_date).toLocaleDateString('es')}
+                            </div>
+                          ) : (
+                            '—'
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center text-sm whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-1">
+                            <Package className="h-3 w-3 text-muted-foreground" />
+                            {items.length}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-bold whitespace-nowrap">
+                          {formatCurrency(orderValue)}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <Badge variant={status.variant}>{status.label}</Badge>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
       </CardContent>
     </Card>

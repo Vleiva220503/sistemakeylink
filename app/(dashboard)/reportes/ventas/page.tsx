@@ -27,7 +27,7 @@ export default async function ReporteVentasPage({ searchParams }: Props) {
       notes, created_at, completed_at, created_by,
       customer:customers(name),
       register:cash_registers(name),
-      sale_items(id, quantity, unit_price, total, variant:product_variants(size)),
+      sale_items(id, quantity, unit_price, total, variant:product_variants(size, product:products(category:categories(name, description)))),
       payments(method, amount),
       cajero:profiles!sales_created_by_fkey(full_name)
     `)

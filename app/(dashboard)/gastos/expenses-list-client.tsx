@@ -137,47 +137,84 @@ export function ExpensesListClient({ initialExpenses, categories }: ExpensesList
             </p>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Descripción</TableHead>
-                <TableHead>Categoría</TableHead>
-                <TableHead className="text-right">Monto</TableHead>
-                <TableHead>Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            {/* Mobile Card View (< 768px) */}
+            <div className="block md:hidden space-y-3">
               {filteredExpenses.map((e) => (
-                <TableRow key={e.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <Calendar className="h-3.5 w-3.5" />
-                      {new Date(e.expense_date).toLocaleDateString('es', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
+                <div key={e.id} className="bg-background border border-border p-3.5 space-y-2.5 text-xs shadow-sm">
+                  <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2">
+                    <div>
+                      <p className="font-bold text-foreground text-sm">{e.description}</p>
+                      <p className="text-muted-foreground font-mono text-[11px]">
+                        {new Date(e.expense_date).toLocaleDateString('es', {
+                          day: '2-digit', month: 'short', year: 'numeric',
+                        })}
+                      </p>
                     </div>
-                  </TableCell>
-                  <TableCell className="font-medium">{e.description}</TableCell>
-                  <TableCell>
-                    {e.category ? (
-                      <Badge variant="secondary">{e.category.name}</Badge>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right font-bold text-destructive">
-                    {formatCurrency(Number(e.amount))}
-                  </TableCell>
-                  <TableCell>
+                    <span className="font-mono font-bold text-destructive text-sm">
+                      {formatCurrency(Number(e.amount))}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs">
+                    <div>
+                      {e.category ? (
+                        <Badge variant="secondary">{e.category.name}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </div>
                     <ExpenseForm expense={e} categories={categories} />
-                  </TableCell>
-                </TableRow>
+                  </div>
+                </div>
               ))}
-            </TableBody>
-          </Table>
+            </div>
+
+            {/* Desktop Table View (>= 768px) */}
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="whitespace-nowrap">Fecha</TableHead>
+                    <TableHead className="whitespace-nowrap">Descripción</TableHead>
+                    <TableHead className="whitespace-nowrap">Categoría</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Monto</TableHead>
+                    <TableHead className="whitespace-nowrap">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredExpenses.map((e) => (
+                    <TableRow key={e.id}>
+                      <TableCell className="whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <Calendar className="h-3.5 w-3.5" />
+                          {new Date(e.expense_date).toLocaleDateString('es', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-medium whitespace-nowrap">{e.description}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {e.category ? (
+                          <Badge variant="secondary">{e.category.name}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-destructive whitespace-nowrap">
+                        {formatCurrency(Number(e.amount))}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <ExpenseForm expense={e} categories={categories} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
       </CardContent>
     </Card>

@@ -172,17 +172,19 @@ export function SalesReportClient({
     handleDateChange(defaultStart, defaultEnd)
   }
 
-  const handleExportExcel = async () => {
+   const handleExportExcel = async () => {
     const { exportToExcel } = await import('@/lib/export-utils')
     const rows = filteredSales.map(s => ({
       'N° Venta': s.sale_number,
-      'Fecha': new Date(s.created_at).toLocaleDateString('es-HN', {
+      'Fecha': new Date(s.created_at).toLocaleDateString('es-NI', {
         day: '2-digit', month: '2-digit', year: 'numeric',
         hour: '2-digit', minute: '2-digit'
       }),
       'Cajero': s.cajero?.full_name || 'Cajero',
       'Cliente': s.customer?.name || 'Cliente General',
       'Caja': s.register?.name || '—',
+      'Talla': Array.from(new Set(s.sale_items?.map((item: any) => item.variant?.product?.category?.name).filter(Boolean))).join(', ') || '—',
+      'Desc. Talla': Array.from(new Set(s.sale_items?.map((item: any) => item.variant?.product?.category?.description).filter(Boolean))).join(', ') || '—',
       'Subtotal': Number(s.subtotal),
       'Descuento': Number(s.discount_amount),
       'Total': Number(s.total),
@@ -203,11 +205,13 @@ export function SalesReportClient({
     const { exportSalesPDF } = await import('@/lib/export-utils')
     const rows = filteredSales.map(s => ({
       'N° venta': s.sale_number,
-      fecha: new Date(s.created_at).toLocaleDateString('es-HN', {
+      fecha: new Date(s.created_at).toLocaleDateString('es-NI', {
         day: '2-digit', month: '2-digit', year: 'numeric',
       }),
       cajero: s.cajero?.full_name || 'Cajero',
       cliente: s.customer?.name || 'Cliente General',
+      talla: Array.from(new Set(s.sale_items?.map((item: any) => item.variant?.product?.category?.name).filter(Boolean))).join(', ') || '—',
+      tallaDescription: Array.from(new Set(s.sale_items?.map((item: any) => item.variant?.product?.category?.description).filter(Boolean))).join(', ') || '—',
       total: Number(s.total),
       'método de pago': s.payments && s.payments.length > 0
         ? s.payments.map((p: any) => p.method === 'cash' ? 'Efectivo' : 'Tarjeta').join(' + ')
@@ -502,26 +506,84 @@ export function SalesReportClient({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          {/* Mobile Card View (< 768px) */}
+          <div className="block md:hidden space-y-3">
+            {filteredSales.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground font-mono text-xs bg-background/50 border border-border p-4">
+                No se encontraron transacciones en el período seleccionado.
+              </div>
+            ) : (
+              filteredSales.map((s: any) => {
+                const payLabel = s.payments && s.payments.length > 0
+                  ? s.payments.map((p: any) => p.method === 'cash' ? 'Efectivo' : 'Tarjeta').join(' + ')
+                  : 'Efectivo'
+                const isCompleted = s.status === 'completed'
+
+                return (
+                  <div key={s.id} className="bg-background border border-border p-3.5 space-y-2.5 text-xs shadow-sm">
+                    <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2">
+                      <div>
+                        <p className="font-mono font-bold text-foreground text-sm">{s.sale_number}</p>
+                        <p className="text-muted-foreground font-mono text-[11px]">
+                          {new Date(s.created_at).toLocaleDateString('es-NI', {
+                            timeZone: 'America/Managua',
+                            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+                      <span
+                        className={`px-2 py-0.5 text-[10px] font-mono font-bold uppercase shrink-0 ${
+                          isCompleted
+                            ? 'bg-success/15 text-success'
+                            : 'bg-destructive/15 text-destructive'
+                        }`}
+                      >
+                        {isCompleted ? 'Completada' : 'Anulada'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-muted-foreground font-mono text-[11px]">
+                      <div>
+                        <span className="text-foreground font-semibold">Cliente:</span> {s.customer?.name || 'Cliente General'}
+                      </div>
+                      <div>
+                        <span className="text-foreground font-semibold">Cajero:</span> {s.cajero?.full_name || 'Cajero'}
+                      </div>
+                      <div>
+                        <span className="text-foreground font-semibold">Método:</span> {payLabel}
+                      </div>
+                      <div>
+                        <span className="text-foreground font-semibold">Total:</span> <span className="font-bold text-foreground">{formatCurrency(Number(s.total))}</span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+
+          {/* Desktop Table View (>= 768px) */}
+          <div className="hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="font-mono text-xs uppercase">Nro. Venta</TableHead>
-                  <TableHead className="font-mono text-xs uppercase">Fecha</TableHead>
-                  <TableHead className="font-mono text-xs uppercase">Cliente</TableHead>
-                  <TableHead className="font-mono text-xs uppercase">Cajero</TableHead>
-                  <TableHead className="font-mono text-xs uppercase text-center">Tallas</TableHead>
-                  <TableHead className="font-mono text-xs uppercase text-right">Subtotal</TableHead>
-                  <TableHead className="font-mono text-xs uppercase text-right">Descuento</TableHead>
-                  <TableHead className="font-mono text-xs uppercase text-right">Total</TableHead>
-                  <TableHead className="font-mono text-xs uppercase text-center">Método</TableHead>
-                  <TableHead className="font-mono text-xs uppercase text-center">Estado</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">Nro. Venta</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">Fecha</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">Cliente</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">Cajero</TableHead>
+                  <TableHead className="font-mono text-xs uppercase text-center whitespace-nowrap">Tallas</TableHead>
+                  <TableHead className="font-mono text-xs uppercase text-center whitespace-nowrap">Desc. Talla</TableHead>
+                  <TableHead className="font-mono text-xs uppercase text-right whitespace-nowrap">Subtotal</TableHead>
+                  <TableHead className="font-mono text-xs uppercase text-right whitespace-nowrap">Descuento</TableHead>
+                  <TableHead className="font-mono text-xs uppercase text-right whitespace-nowrap">Total</TableHead>
+                  <TableHead className="font-mono text-xs uppercase text-center whitespace-nowrap">Método</TableHead>
+                  <TableHead className="font-mono text-xs uppercase text-center whitespace-nowrap">Estado</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredSales.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground font-mono text-xs">
+                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground font-mono text-xs">
                       No se encontraron transacciones en el período seleccionado.
                     </TableCell>
                   </TableRow>
@@ -533,8 +595,8 @@ export function SalesReportClient({
 
                     return (
                       <TableRow key={s.id} className="text-xs">
-                        <TableCell className="font-mono font-bold text-foreground">{s.sale_number}</TableCell>
-                        <TableCell className="text-muted-foreground">
+                        <TableCell className="font-mono font-bold text-foreground whitespace-nowrap">{s.sale_number}</TableCell>
+                        <TableCell className="text-muted-foreground whitespace-nowrap">
                           <div className="flex items-center gap-1 font-mono">
                             <Calendar className="h-3 w-3" />
                             {new Date(s.created_at).toLocaleDateString('es-NI', {
@@ -546,18 +608,21 @@ export function SalesReportClient({
                             })}
                           </div>
                         </TableCell>
-                        <TableCell>{s.customer?.name || 'Cliente General'}</TableCell>
-                        <TableCell className="text-muted-foreground">{s.cajero?.full_name || 'Cajero'}</TableCell>
-                        <TableCell className="text-center font-mono font-semibold">
-                          {Array.from(new Set(s.sale_items?.map((item: any) => item.variant?.size).filter(Boolean))).join(', ') || '—'}
+                        <TableCell className="whitespace-nowrap">{s.customer?.name || 'Cliente General'}</TableCell>
+                        <TableCell className="text-muted-foreground whitespace-nowrap">{s.cajero?.full_name || 'Cajero'}</TableCell>
+                        <TableCell className="text-center font-mono font-semibold whitespace-nowrap">
+                          {Array.from(new Set(s.sale_items?.map((item: any) => item.variant?.product?.category?.name).filter(Boolean))).join(', ') || '—'}
                         </TableCell>
-                        <TableCell className="text-right font-mono">{formatCurrency(Number(s.subtotal))}</TableCell>
-                        <TableCell className="text-right font-mono text-destructive">
+                        <TableCell className="text-center font-mono text-muted-foreground text-[10px] whitespace-nowrap">
+                          {Array.from(new Set(s.sale_items?.map((item: any) => item.variant?.product?.category?.description).filter(Boolean))).join(', ') || '—'}
+                        </TableCell>
+                        <TableCell className="text-right font-mono whitespace-nowrap">{formatCurrency(Number(s.subtotal))}</TableCell>
+                        <TableCell className="text-right font-mono text-destructive whitespace-nowrap">
                           {Number(s.discount_amount) > 0 ? `-${formatCurrency(Number(s.discount_amount))}` : '—'}
                         </TableCell>
-                        <TableCell className="text-right font-mono font-bold text-foreground">{formatCurrency(Number(s.total))}</TableCell>
-                        <TableCell className="text-center font-mono font-semibold text-muted-foreground">{payLabel}</TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="text-right font-mono font-bold text-foreground whitespace-nowrap">{formatCurrency(Number(s.total))}</TableCell>
+                        <TableCell className="text-center font-mono font-semibold text-muted-foreground whitespace-nowrap">{payLabel}</TableCell>
+                        <TableCell className="text-center whitespace-nowrap">
                           <span
                             className={`px-2 py-0.5 text-[10px] font-mono font-bold uppercase ${
                               s.status === 'completed'

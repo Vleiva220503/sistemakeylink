@@ -6,15 +6,28 @@ import { cn } from "@/lib/utils"
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
-    <div
-      data-slot="table-container"
-      className="relative w-full overflow-x-auto"
-    >
-      <table
-        data-slot="table"
-        className={cn("w-full caption-bottom text-sm", className)}
-        {...props}
-      />
+    <div className="w-full space-y-1.5">
+      {/* Indicador visual móvil de scroll horizontal */}
+      <div className="flex sm:hidden items-center justify-between px-2.5 py-1 text-[11px] font-mono text-primary bg-primary/10 border border-primary/20 rounded">
+        <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider">
+          <svg className="w-3.5 h-3.5 animate-pulse shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+          </svg>
+          Desliza la tabla
+        </span>
+        <span className="font-semibold text-[10px] text-muted-foreground uppercase">Scroll ➔</span>
+      </div>
+
+      <div
+        data-slot="table-container"
+        className="relative w-full overflow-x-auto touch-pan-x custom-horizontal-scrollbar border border-border/40 rounded pb-1"
+      >
+        <table
+          data-slot="table"
+          className={cn("w-max min-w-full caption-bottom text-sm border-collapse", className)}
+          {...props}
+        />
+      </div>
     </div>
   )
 }

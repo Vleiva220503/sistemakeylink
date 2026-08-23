@@ -344,27 +344,99 @@ export function InventoryReportClient({
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          {/* Mobile Card View (< 768px) */}
+          <div className="block md:hidden space-y-3">
+            {filteredVariants.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground font-mono text-xs bg-background/50 border border-border p-4">
+                No hay variantes que coincidan con los filtros aplicados.
+              </div>
+            ) : (
+              filteredVariants.map((v: any) => {
+                const price = Number(v.price_override || v.product?.base_price || 0)
+                const cost = Number(v.cost)
+                const costVal = v.stock_quantity * cost
+                const saleVal = v.stock_quantity * price
+                const profitEst = saleVal - costVal
+
+                const isOutOfStock = v.stock_quantity <= 0
+                const isLowStock = v.stock_quantity <= v.stock_reorder_point && v.stock_quantity > 0
+
+                return (
+                  <div key={v.id} className="bg-background border border-border p-3.5 space-y-2.5 text-xs shadow-sm">
+                    <div className="flex items-start justify-between gap-2 border-b border-border/50 pb-2">
+                      <div>
+                        <p className="font-bold text-foreground text-sm">{v.product?.name}</p>
+                        <p className="font-mono text-muted-foreground text-[11px]">SKU: {v.sku}</p>
+                      </div>
+                      <span
+                        className={`px-2 py-0.5 text-[10px] font-mono font-bold uppercase shrink-0 ${
+                          isOutOfStock
+                            ? 'bg-destructive/15 text-destructive'
+                            : isLowStock
+                            ? 'bg-warning/15 text-warning'
+                            : 'bg-success/15 text-success'
+                        }`}
+                      >
+                        {isOutOfStock ? 'Agotado' : isLowStock ? 'Bajo' : 'Normal'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-muted-foreground font-mono text-[11px]">
+                      <div>
+                        <span className="text-foreground font-semibold">Talla:</span> {v.product?.category?.name || '—'}
+                      </div>
+                      <div>
+                        <span className="text-foreground font-semibold">Stock:</span> <span className="font-bold text-foreground">{v.stock_quantity} uds</span>
+                      </div>
+                      <div>
+                        <span className="text-foreground font-semibold">Precio:</span> {formatCurrency(price)}
+                      </div>
+                      {isAdmin && (
+                        <div>
+                          <span className="text-foreground font-semibold">Costo:</span> {formatCurrency(cost)}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-border/50 flex items-center justify-between font-mono text-xs">
+                      <span className="text-muted-foreground">Valor Venta Total:</span>
+                      <span className="font-bold text-foreground">{formatCurrency(saleVal)}</span>
+                    </div>
+                    {isAdmin && (
+                      <div className="flex items-center justify-between font-mono text-xs">
+                        <span className="text-muted-foreground">Ganancia Estimada:</span>
+                        <span className="font-bold text-success">{formatCurrency(profitEst)}</span>
+                      </div>
+                    )}
+                  </div>
+                )
+              })
+            )}
+          </div>
+
+          {/* Desktop/Tablet Table View (>= 768px) */}
+          <div className="hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="font-mono text-xs uppercase">Producto</TableHead>
-                  <TableHead className="font-mono text-xs uppercase">SKU</TableHead>
-                  <TableHead className="font-mono text-xs uppercase text-center">Talla/Color</TableHead>
-                  <TableHead className="font-mono text-xs uppercase">Cat. Talla</TableHead>
-                  <TableHead className="font-mono text-xs uppercase text-center">Stock</TableHead>
-                  {isAdmin && <TableHead className="font-mono text-xs uppercase text-right">Costo Unit.</TableHead>}
-                  <TableHead className="font-mono text-xs uppercase text-right">Precio Venta</TableHead>
-                  {isAdmin && <TableHead className="font-mono text-xs uppercase text-right">Valor Costo</TableHead>}
-                  <TableHead className="font-mono text-xs uppercase text-right">Valor Venta</TableHead>
-                  {isAdmin && <TableHead className="font-mono text-xs uppercase text-right">Ganancia Est.</TableHead>}
-                  <TableHead className="font-mono text-xs uppercase text-center">Estado</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">Producto</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">SKU</TableHead>
+                  <TableHead className="font-mono text-xs uppercase text-center whitespace-nowrap">Talla/Color</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">Talla</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">Desc. Talla</TableHead>
+                  <TableHead className="font-mono text-xs uppercase text-center whitespace-nowrap">Stock</TableHead>
+                  {isAdmin && <TableHead className="font-mono text-xs uppercase text-right whitespace-nowrap">Costo Unit.</TableHead>}
+                  <TableHead className="font-mono text-xs uppercase text-right whitespace-nowrap">Precio Venta</TableHead>
+                  {isAdmin && <TableHead className="font-mono text-xs uppercase text-right whitespace-nowrap">Valor Costo</TableHead>}
+                  <TableHead className="font-mono text-xs uppercase text-right whitespace-nowrap">Valor Venta</TableHead>
+                  {isAdmin && <TableHead className="font-mono text-xs uppercase text-right whitespace-nowrap">Ganancia Est.</TableHead>}
+                  <TableHead className="font-mono text-xs uppercase text-center whitespace-nowrap">Estado</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredVariants.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={isAdmin ? 11 : 7} className="text-center py-8 text-muted-foreground font-mono text-xs">
+                    <TableCell colSpan={isAdmin ? 12 : 8} className="text-center py-8 text-muted-foreground font-mono text-xs">
                       No hay variantes que coincidan con los filtros aplicados.
                     </TableCell>
                   </TableRow>
@@ -381,30 +453,30 @@ export function InventoryReportClient({
 
                     return (
                       <TableRow key={v.id} className="font-sans text-xs">
-                        <TableCell className="font-semibold text-foreground">{v.product?.name}</TableCell>
-                        <TableCell className="font-mono text-muted-foreground">{v.sku}</TableCell>
-                        <TableCell className="text-center font-mono text-muted-foreground">
+                        <TableCell className="font-semibold text-foreground whitespace-nowrap">{v.product?.name}</TableCell>
+                        <TableCell className="font-mono text-muted-foreground whitespace-nowrap">{v.sku}</TableCell>
+                        <TableCell className="text-center font-mono text-muted-foreground whitespace-nowrap">
                           {v.size ? `T: ${v.size}` : '—'} {v.color ? `· ${v.color}` : ''}
                         </TableCell>
-                        <TableCell className="text-xs">
-                          <span className="font-semibold">{v.product?.category?.name || '—'}</span>
-                          {v.product?.category?.description && (
-                            <span className="block text-muted-foreground text-[10px]">{v.product.category.description}</span>
-                          )}
+                        <TableCell className="text-xs font-semibold whitespace-nowrap">
+                          {v.product?.category?.name || '—'}
                         </TableCell>
-                        <TableCell className="text-center font-mono font-bold text-foreground">
+                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                          {v.product?.category?.description || '—'}
+                        </TableCell>
+                        <TableCell className="text-center font-mono font-bold text-foreground whitespace-nowrap">
                           {v.stock_quantity}
                         </TableCell>
-                        {isAdmin && <TableCell className="text-right font-mono">{formatCurrency(cost)}</TableCell>}
-                        <TableCell className="text-right font-mono">{formatCurrency(price)}</TableCell>
-                        {isAdmin && <TableCell className="text-right font-mono text-muted-foreground">{formatCurrency(costVal)}</TableCell>}
-                        <TableCell className="text-right font-mono font-semibold text-foreground">{formatCurrency(saleVal)}</TableCell>
+                        {isAdmin && <TableCell className="text-right font-mono whitespace-nowrap">{formatCurrency(cost)}</TableCell>}
+                        <TableCell className="text-right font-mono whitespace-nowrap">{formatCurrency(price)}</TableCell>
+                        {isAdmin && <TableCell className="text-right font-mono text-muted-foreground whitespace-nowrap">{formatCurrency(costVal)}</TableCell>}
+                        <TableCell className="text-right font-mono font-semibold text-foreground whitespace-nowrap">{formatCurrency(saleVal)}</TableCell>
                         {isAdmin && (
-                          <TableCell className="text-right font-mono font-bold text-success">
+                          <TableCell className="text-right font-mono font-bold text-success whitespace-nowrap">
                             {formatCurrency(profitEst)}
                           </TableCell>
                         )}
-                        <TableCell className="text-center">
+                        <TableCell className="text-center whitespace-nowrap">
                           <span
                             className={`px-2 py-0.5 text-[10px] font-mono font-bold uppercase ${
                               isOutOfStock

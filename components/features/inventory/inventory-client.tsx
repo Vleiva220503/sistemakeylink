@@ -375,108 +375,188 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
           <CardTitle>Stock por Variante / Calzado</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">Imagen</TableHead>
-                <TableHead>Producto</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead>Talla</TableHead>
-                <TableHead>Desc. Talla</TableHead>
-                <TableHead>Detalles</TableHead>
-                <TableHead className="text-center">Stock</TableHead>
-                {isAdmin && <TableHead className="text-right">Costo</TableHead>}
-                {isAdmin && <TableHead className="text-right">Valor Stock</TableHead>}
-                {isAdmin && <TableHead className="text-center">Acciones</TableHead>}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredVariants.map((v: any) => {
+          {/* Mobile Card View (< 768px) */}
+          <div className="block md:hidden space-y-3">
+            {filteredVariants.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground font-mono text-xs bg-background/50 border border-border p-4">
+                No hay productos que coincidan con los filtros.
+              </div>
+            ) : (
+              filteredVariants.map((v: any) => {
                 const img = resolveProductImage(v.product, v.image_url)
+                const isOutOfStock = v.stock_quantity <= 0
+                const isLowStock = v.stock_quantity <= v.stock_reorder_point && v.stock_quantity > 0
 
                 return (
-                  <TableRow
+                  <div
                     key={v.id}
-                    className={`cursor-pointer transition-colors hover:bg-muted/50 ${
-                      v.stock_quantity <= 0 ? 'bg-destructive/5' : v.stock_quantity <= v.stock_reorder_point ? 'bg-warning/5' : ''
-                    }`}
+                    onClick={() => setSelectedVariant(v)}
+                    className="bg-background border border-border p-3.5 space-y-3 text-xs shadow-sm cursor-pointer hover:border-primary/50 transition-colors"
                   >
-                    <TableCell onClick={() => setSelectedVariant(v)}>
-                      <div className="h-10 w-10 border border-border bg-muted/40 rounded flex items-center justify-center overflow-hidden">
+                    <div className="flex items-start gap-3 border-b border-border/50 pb-2.5">
+                      <div className="h-12 w-12 border border-border bg-muted/40 rounded flex items-center justify-center overflow-hidden shrink-0">
                         <SafeImage src={img} alt={v.sku} className="object-contain w-full h-full" />
                       </div>
-                    </TableCell>
-                    <TableCell className="font-medium" onClick={() => setSelectedVariant(v)}>
-                      {v.product?.name}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs" onClick={() => setSelectedVariant(v)}>
-                      {v.sku}
-                    </TableCell>
-                    <TableCell onClick={() => setSelectedVariant(v)}>
-                      <span className="font-bold text-foreground">
-                        {v.product?.categories?.name || '—'}
-                      </span>
-                    </TableCell>
-                    <TableCell onClick={() => setSelectedVariant(v)}>
-                      <span className="text-muted-foreground font-mono text-xs">
-                        {v.product?.categories?.description || '—'}
-                      </span>
-                    </TableCell>
-                    <TableCell onClick={() => setSelectedVariant(v)}>
-                      <div className="flex gap-1 flex-wrap">
-                        {v.product?.categories?.name && (
-                          <Badge variant="outline" className="text-xs border-primary/30 text-primary bg-primary/5">
-                            Talla: {v.product.categories.name}
-                          </Badge>
-                        )}
-                        {v.color && (
-                          <Badge variant="outline" className="text-xs bg-secondary/35 text-foreground border-border">
-                            {v.color}
-                          </Badge>
-                        )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-foreground text-sm truncate">{v.product?.name}</p>
+                        <p className="font-mono text-muted-foreground text-[11px]">SKU: {v.sku}</p>
                       </div>
-                    </TableCell>
-
-                    {/* Stock Clicable */}
-                    <TableCell className="text-center font-bold" onClick={() => setSelectedVariant(v)}>
-                      <span className={`px-2 py-1 rounded ${
-                        v.stock_quantity <= 0 ? 'bg-destructive/20 text-destructive font-black' : v.stock_quantity <= v.stock_reorder_point ? 'bg-warning/20 text-warning font-black' : 'text-foreground'
-                      }`}>
-                        {v.stock_quantity}
+                      <span
+                        className={`px-2 py-0.5 text-[10px] font-mono font-bold uppercase shrink-0 ${
+                          isOutOfStock
+                            ? 'bg-destructive/20 text-destructive'
+                            : isLowStock
+                            ? 'bg-warning/20 text-warning'
+                            : 'bg-success/20 text-success'
+                        }`}
+                      >
+                        {isOutOfStock ? 'Agotado' : isLowStock ? 'Bajo' : 'Normal'}
                       </span>
-                    </TableCell>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-muted-foreground font-mono text-[11px]">
+                      <div>
+                        <span className="text-foreground font-semibold">Talla:</span> {v.product?.categories?.name || '—'}
+                      </div>
+                      <div>
+                        <span className="text-foreground font-semibold">Stock:</span> <span className="font-bold text-foreground">{v.stock_quantity} uds</span>
+                      </div>
+                      {isAdmin && (
+                        <div>
+                          <span className="text-foreground font-semibold">Costo:</span> {formatCurrency(v.cost)}
+                        </div>
+                      )}
+                      {isAdmin && (
+                        <div>
+                          <span className="text-foreground font-semibold">Valor Stock:</span> {formatCurrency(v.stock_quantity * v.cost)}
+                        </div>
+                      )}
+                    </div>
 
                     {isAdmin && (
-                      <TableCell className="text-right" onClick={() => setSelectedVariant(v)}>
-                        {formatCurrency(v.cost)}
-                      </TableCell>
+                      <div className="pt-2 border-t border-border/50 flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
+                        <span className="text-[11px] font-mono text-muted-foreground">Acciones:</span>
+                        <AddStockModal
+                          variantId={v.id}
+                          productName={v.product?.name || ''}
+                          sku={v.sku}
+                          currentStock={v.stock_quantity}
+                          color={v.color}
+                          size={v.size}
+                        />
+                      </div>
                     )}
-                    {isAdmin && (
-                      <TableCell className="text-right font-bold" onClick={() => setSelectedVariant(v)}>
-                        {formatCurrency(v.stock_quantity * v.cost)}
-                      </TableCell>
-                    )}
+                  </div>
+                )
+              })
+            )}
+          </div>
 
-                    {/* Botón de Agregar Cantidad al Stock */}
-                    {isAdmin && (
-                      <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
-                          <AddStockModal
-                            variantId={v.id}
-                            productName={v.product?.name || ''}
-                            sku={v.sku}
-                            currentStock={v.stock_quantity}
-                            color={v.color}
-                            size={v.size}
-                          />
+          {/* Desktop/Tablet Table View (>= 768px) */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12 whitespace-nowrap">Imagen</TableHead>
+                  <TableHead className="whitespace-nowrap">Producto</TableHead>
+                  <TableHead className="whitespace-nowrap">SKU</TableHead>
+                  <TableHead className="whitespace-nowrap">Talla</TableHead>
+                  <TableHead className="whitespace-nowrap">Desc. Talla</TableHead>
+                  <TableHead className="whitespace-nowrap">Detalles</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">Stock</TableHead>
+                  {isAdmin && <TableHead className="text-right whitespace-nowrap">Costo</TableHead>}
+                  {isAdmin && <TableHead className="text-right whitespace-nowrap">Valor Stock</TableHead>}
+                  {isAdmin && <TableHead className="text-center whitespace-nowrap">Acciones</TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredVariants.map((v: any) => {
+                  const img = resolveProductImage(v.product, v.image_url)
+
+                  return (
+                    <TableRow
+                      key={v.id}
+                      className={`cursor-pointer transition-colors hover:bg-muted/50 ${
+                        v.stock_quantity <= 0 ? 'bg-destructive/5' : v.stock_quantity <= v.stock_reorder_point ? 'bg-warning/5' : ''
+                      }`}
+                    >
+                      <TableCell onClick={() => setSelectedVariant(v)} className="whitespace-nowrap">
+                        <div className="h-10 w-10 border border-border bg-muted/40 rounded flex items-center justify-center overflow-hidden">
+                          <SafeImage src={img} alt={v.sku} className="object-contain w-full h-full" />
                         </div>
                       </TableCell>
-                    )}
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+                      <TableCell className="font-medium whitespace-nowrap" onClick={() => setSelectedVariant(v)}>
+                        {v.product?.name}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs whitespace-nowrap" onClick={() => setSelectedVariant(v)}>
+                        {v.sku}
+                      </TableCell>
+                      <TableCell onClick={() => setSelectedVariant(v)} className="whitespace-nowrap">
+                        <span className="font-bold text-foreground">
+                          {v.product?.categories?.name || '—'}
+                        </span>
+                      </TableCell>
+                      <TableCell onClick={() => setSelectedVariant(v)} className="whitespace-nowrap">
+                        <span className="text-muted-foreground font-mono text-xs">
+                          {v.product?.categories?.description || '—'}
+                        </span>
+                      </TableCell>
+                      <TableCell onClick={() => setSelectedVariant(v)} className="whitespace-nowrap">
+                        <div className="flex gap-1 flex-nowrap">
+                          {v.product?.categories?.name && (
+                            <Badge variant="outline" className="text-xs border-primary/30 text-primary bg-primary/5 whitespace-nowrap">
+                              Talla: {v.product.categories.name}
+                            </Badge>
+                          )}
+                          {v.color && (
+                            <Badge variant="outline" className="text-xs bg-secondary/35 text-foreground border-border whitespace-nowrap">
+                              {v.color}
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+
+                      {/* Stock Clicable */}
+                      <TableCell className="text-center font-bold whitespace-nowrap" onClick={() => setSelectedVariant(v)}>
+                        <span className={`px-2 py-1 rounded ${
+                          v.stock_quantity <= 0 ? 'bg-destructive/20 text-destructive font-black' : v.stock_quantity <= v.stock_reorder_point ? 'bg-warning/20 text-warning font-black' : 'text-foreground'
+                        }`}>
+                          {v.stock_quantity}
+                        </span>
+                      </TableCell>
+
+                      {isAdmin && (
+                        <TableCell className="text-right whitespace-nowrap" onClick={() => setSelectedVariant(v)}>
+                          {formatCurrency(v.cost)}
+                        </TableCell>
+                      )}
+                      {isAdmin && (
+                        <TableCell className="text-right font-bold whitespace-nowrap" onClick={() => setSelectedVariant(v)}>
+                          {formatCurrency(v.stock_quantity * v.cost)}
+                        </TableCell>
+                      )}
+
+                      {/* Botón de Agregar Cantidad al Stock */}
+                      {isAdmin && (
+                        <TableCell className="text-center whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+                            <AddStockModal
+                              variantId={v.id}
+                              productName={v.product?.name || ''}
+                              sku={v.sku}
+                              currentStock={v.stock_quantity}
+                              color={v.color}
+                              size={v.size}
+                            />
+                          </div>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 

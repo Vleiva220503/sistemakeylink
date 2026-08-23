@@ -376,18 +376,58 @@ export function TopProductsReportClient({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          {/* Mobile Card View (< 768px) */}
+          <div className="block md:hidden space-y-3">
+            {filteredData.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground font-mono text-xs bg-background/50 border border-border p-4">
+                No hay registros en el período seleccionado.
+              </div>
+            ) : (
+              filteredData.map((item, index) => (
+                <div key={item.productId} className="bg-background border border-border p-3.5 space-y-2.5 text-xs shadow-sm">
+                  <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="flex items-center justify-center gap-1 font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 text-xs">
+                        <Award className="h-3.5 w-3.5 text-warning" />
+                        #{index + 1}
+                      </span>
+                      <p className="font-bold text-foreground text-sm">{item.name}</p>
+                    </div>
+                    <span className="font-mono text-muted-foreground text-[11px]">SKU: {item.sku}</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-muted-foreground font-mono text-[11px]">
+                    <div>
+                      <span className="text-foreground font-semibold">Talla:</span> {item.category}
+                    </div>
+                    <div>
+                      <span className="text-foreground font-semibold">Marca:</span> {item.brand}
+                    </div>
+                    <div>
+                      <span className="text-foreground font-semibold">Vendidas:</span> <span className="font-bold text-foreground">{item.unitsSold} uds</span>
+                    </div>
+                    <div>
+                      <span className="text-foreground font-semibold">Ingreso:</span> <span className="font-bold text-success">{formatCurrency(item.revenue)}</span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Desktop Table View (>= 768px) */}
+          <div className="hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="font-mono text-xs uppercase text-center w-16">Puesto</TableHead>
-                  <TableHead className="font-mono text-xs uppercase">Producto</TableHead>
-                  <TableHead className="font-mono text-xs uppercase">SKU Variante</TableHead>
-                  <TableHead className="font-mono text-xs uppercase">Talla</TableHead>
-                  <TableHead className="font-mono text-xs uppercase">Desc. Talla</TableHead>
-                  <TableHead className="font-mono text-xs uppercase">Marca</TableHead>
-                  <TableHead className="font-mono text-xs uppercase text-center">Uds. Vendidas</TableHead>
-                  <TableHead className="font-mono text-xs uppercase text-right">Ingreso Neto</TableHead>
+                  <TableHead className="font-mono text-xs uppercase text-center w-16 whitespace-nowrap">Puesto</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">Producto</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">SKU Variante</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">Talla</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">Desc. Talla</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">Marca</TableHead>
+                  <TableHead className="font-mono text-xs uppercase text-center whitespace-nowrap">Uds. Vendidas</TableHead>
+                  <TableHead className="font-mono text-xs uppercase text-right whitespace-nowrap">Ingreso Neto</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -400,21 +440,21 @@ export function TopProductsReportClient({
                 ) : (
                   filteredData.map((item, index) => (
                     <TableRow key={item.productId} className="text-xs">
-                      <TableCell className="text-center font-mono font-bold text-primary">
+                      <TableCell className="text-center font-mono font-bold text-primary whitespace-nowrap">
                         <span className="flex items-center justify-center gap-1">
                           <Award className="h-3.5 w-3.5 text-warning" />
                           {index + 1}
                         </span>
                       </TableCell>
-                      <TableCell className="font-semibold text-foreground">{item.name}</TableCell>
-                      <TableCell className="font-mono text-muted-foreground">{item.sku}</TableCell>
-                      <TableCell className="font-mono text-muted-foreground">{item.category}</TableCell>
-                      <TableCell className="text-muted-foreground text-[11px]">{item.categoryDescription || '—'}</TableCell>
-                      <TableCell className="text-muted-foreground">{item.brand}</TableCell>
-                      <TableCell className="text-center font-mono font-bold text-foreground">
+                      <TableCell className="font-semibold text-foreground whitespace-nowrap">{item.name}</TableCell>
+                      <TableCell className="font-mono text-muted-foreground whitespace-nowrap">{item.sku}</TableCell>
+                      <TableCell className="font-mono text-muted-foreground whitespace-nowrap">{item.category}</TableCell>
+                      <TableCell className="text-muted-foreground text-[11px] whitespace-nowrap">{item.categoryDescription || '—'}</TableCell>
+                      <TableCell className="text-muted-foreground whitespace-nowrap">{item.brand}</TableCell>
+                      <TableCell className="text-center font-mono font-bold text-foreground whitespace-nowrap">
                         {item.unitsSold}
                       </TableCell>
-                      <TableCell className="text-right font-mono font-bold text-success">
+                      <TableCell className="text-right font-mono font-bold text-success whitespace-nowrap">
                         {formatCurrency(item.revenue)}
                       </TableCell>
                     </TableRow>

@@ -418,17 +418,58 @@ export function UsersClient({ initialUsers }: UsersClientProps) {
             Directorio de Usuarios ({filtered.length})
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
+        <CardContent className="p-4 sm:p-0">
+          {/* Mobile Card View (< 768px) */}
+          <div className="block md:hidden space-y-3">
+            {filtered.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <UserCircle2 className="h-10 w-10 opacity-20 mx-auto mb-3" />
+                {search ? 'No se encontraron usuarios con ese criterio.' : 'No hay usuarios registrados.'}
+              </div>
+            ) : (
+              filtered.map((u) => (
+                <div key={u.username} className={`bg-background border border-border p-3.5 space-y-2.5 text-xs shadow-sm ${!u.is_active ? 'opacity-60' : ''}`}>
+                  <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2">
+                    <div>
+                      <p className="font-mono font-bold text-primary text-sm">{u.username}</p>
+                      <p className="text-muted-foreground text-xs">{u.full_name || 'Sin nombre'}</p>
+                    </div>
+                    <Badge variant={u.is_active ? 'default' : 'secondary'} className="text-[10px] shrink-0">
+                      {u.is_active ? 'Activo' : 'Inactivo'}
+                    </Badge>
+                  </div>
+
+                  <div className="flex items-center justify-between font-mono text-[11px] text-muted-foreground">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider rounded-none border ${
+                      u.role === 'admin'
+                        ? 'bg-primary/10 text-primary border-primary/20'
+                        : 'bg-secondary text-secondary-foreground border-border'
+                    }`}>
+                      <ShieldCheck className="h-3 w-3" />
+                      {u.role === 'admin' ? 'Admin' : 'Cajero'}
+                    </span>
+
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <EditUserModal user={u} onSuccess={refresh} />
+                      <ToggleActiveButton user={u} onSuccess={refresh} />
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Desktop Table View (>= 768px) */}
+          <div className="hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="font-mono text-xs uppercase">Usuario</TableHead>
-                  <TableHead className="font-mono text-xs uppercase">Nombre Completo</TableHead>
-                  <TableHead className="font-mono text-xs uppercase text-center">Rol</TableHead>
-                  <TableHead className="font-mono text-xs uppercase text-center">Estado</TableHead>
-                  <TableHead className="font-mono text-xs uppercase">Fecha Registro</TableHead>
-                  <TableHead className="font-mono text-xs uppercase text-center">Acciones</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">Usuario</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">Nombre Completo</TableHead>
+                  <TableHead className="font-mono text-xs uppercase text-center whitespace-nowrap">Rol</TableHead>
+                  <TableHead className="font-mono text-xs uppercase text-center whitespace-nowrap">Estado</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">Fecha Registro</TableHead>
+                  <TableHead className="font-mono text-xs uppercase text-center whitespace-nowrap">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -442,9 +483,9 @@ export function UsersClient({ initialUsers }: UsersClientProps) {
                 ) : (
                   filtered.map((u) => (
                     <TableRow key={u.username} className={!u.is_active ? 'opacity-50' : ''}>
-                      <TableCell className="font-mono font-bold text-sm text-primary">{u.username}</TableCell>
-                      <TableCell className="text-sm">{u.full_name || <span className="text-muted-foreground italic">—</span>}</TableCell>
-                      <TableCell className="text-center">
+                      <TableCell className="font-mono font-bold text-sm text-primary whitespace-nowrap">{u.username}</TableCell>
+                      <TableCell className="text-sm whitespace-nowrap">{u.full_name || <span className="text-muted-foreground italic">—</span>}</TableCell>
+                      <TableCell className="text-center whitespace-nowrap">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider rounded-none border ${
                           u.role === 'admin'
                             ? 'bg-primary/10 text-primary border-primary/20'
@@ -454,12 +495,12 @@ export function UsersClient({ initialUsers }: UsersClientProps) {
                           {u.role === 'admin' ? 'Admin' : 'Cajero'}
                         </span>
                       </TableCell>
-                      <TableCell className="text-center">
+                      <TableCell className="text-center whitespace-nowrap">
                         <Badge variant={u.is_active ? 'default' : 'secondary'} className="text-[10px]">
                           {u.is_active ? 'Activo' : 'Inactivo'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground font-mono">
+                      <TableCell className="text-xs text-muted-foreground font-mono whitespace-nowrap">
                         {new Date(u.created_at).toLocaleDateString('es-NI', {
                           timeZone: 'America/Managua',
                           day: '2-digit',
@@ -467,7 +508,7 @@ export function UsersClient({ initialUsers }: UsersClientProps) {
                           year: 'numeric',
                         })}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1">
                           <EditUserModal user={u} onSuccess={refresh} />
                           <ToggleActiveButton user={u} onSuccess={refresh} />

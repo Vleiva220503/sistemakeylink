@@ -105,59 +105,94 @@ export default async function ReporteRentabilidadPage() {
           <CardTitle>Resumen Financiero Mensual</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Concepto</TableHead>
-                <TableHead className="text-right">Monto</TableHead>
-                <TableHead className="text-right">% de Ventas Netas</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow>
-                <TableCell className="font-medium text-success">(+) Ventas Brutas</TableCell>
-                <TableCell className="text-right font-mono">{formatCurrency(grossSales)}</TableCell>
-                <TableCell className="text-right text-muted-foreground">
-                  {netSales > 0 ? `${((grossSales / netSales) * 100).toFixed(1)}%` : '—'}
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="font-medium text-amber-600">(-) Descuentos Otorgados</TableCell>
-                <TableCell className="text-right font-mono">-{formatCurrency(discounts)}</TableCell>
-                <TableCell className="text-right text-muted-foreground">
-                  {netSales > 0 ? `${((discounts / netSales) * 100).toFixed(1)}%` : '—'}
-                </TableCell>
-              </TableRow>
-              <TableRow className="border-t-2 font-bold">
-                <TableCell className="font-medium text-success">(=) Ventas Netas</TableCell>
-                <TableCell className="text-right font-mono text-success">{formatCurrency(netSales)}</TableCell>
-                <TableCell className="text-right text-muted-foreground">100.0%</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="font-medium text-muted-foreground">(-) Costo de Ventas (COGS)</TableCell>
-                <TableCell className="text-right font-mono">-{formatCurrency(cogs)}</TableCell>
-                <TableCell className="text-right text-muted-foreground">
-                  {netSales > 0 ? `${((cogs / netSales) * 100).toFixed(1)}%` : '—'}
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="font-medium text-destructive">(-) Gastos Operativos</TableCell>
-                <TableCell className="text-right font-mono text-destructive">-{formatCurrency(expenses)}</TableCell>
-                <TableCell className="text-right text-muted-foreground">
-                  {netSales > 0 ? `${((expenses / netSales) * 100).toFixed(1)}%` : '—'}
-                </TableCell>
-              </TableRow>
-              <TableRow className="bg-secondary/20">
-                <TableCell className="font-bold font-display text-base">(=) Ganancia Neta Final</TableCell>
-                <TableCell className={`text-right font-bold font-mono text-base ${netProfit >= 0 ? 'text-success' : 'text-destructive'}`}>
+          {/* Mobile Card View (< 768px) */}
+          <div className="block md:hidden space-y-3">
+            <div className="bg-background border border-border p-3.5 space-y-2 text-xs shadow-sm">
+              <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                <span className="font-semibold text-success">(+) Ventas Brutas</span>
+                <span className="font-mono font-bold text-foreground">{formatCurrency(grossSales)}</span>
+              </div>
+              <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                <span className="font-semibold text-amber-600">(-) Descuentos</span>
+                <span className="font-mono text-muted-foreground">-{formatCurrency(discounts)}</span>
+              </div>
+              <div className="flex items-center justify-between border-b border-border/50 pb-2 bg-success/5 p-2 rounded">
+                <span className="font-bold text-success">(=) Ventas Netas</span>
+                <span className="font-mono font-bold text-success">{formatCurrency(netSales)}</span>
+              </div>
+              <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                <span className="font-semibold text-muted-foreground">(-) Costo Ventas (COGS)</span>
+                <span className="font-mono text-muted-foreground">-{formatCurrency(cogs)}</span>
+              </div>
+              <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                <span className="font-semibold text-destructive">(-) Gastos Operativos</span>
+                <span className="font-mono text-destructive">-{formatCurrency(expenses)}</span>
+              </div>
+              <div className="flex items-center justify-between pt-1">
+                <span className="font-bold text-sm">(=) Ganancia Neta Final</span>
+                <span className={`font-mono font-bold text-base ${netProfit >= 0 ? 'text-success' : 'text-destructive'}`}>
                   {formatCurrency(netProfit)}
-                </TableCell>
-                <TableCell className="text-right font-bold text-muted-foreground">
-                  {profitMargin.toFixed(1)}%
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop Table View (>= 768px) */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="whitespace-nowrap">Concepto</TableHead>
+                  <TableHead className="text-right whitespace-nowrap">Monto</TableHead>
+                  <TableHead className="text-right whitespace-nowrap">% de Ventas Netas</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  <TableCell className="font-medium text-success whitespace-nowrap">(+) Ventas Brutas</TableCell>
+                  <TableCell className="text-right font-mono whitespace-nowrap">{formatCurrency(grossSales)}</TableCell>
+                  <TableCell className="text-right text-muted-foreground whitespace-nowrap">
+                    {netSales > 0 ? `${((grossSales / netSales) * 100).toFixed(1)}%` : '—'}
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium text-amber-600 whitespace-nowrap">(-) Descuentos Otorgados</TableCell>
+                  <TableCell className="text-right font-mono whitespace-nowrap">-{formatCurrency(discounts)}</TableCell>
+                  <TableCell className="text-right text-muted-foreground whitespace-nowrap">
+                    {netSales > 0 ? `${((discounts / netSales) * 100).toFixed(1)}%` : '—'}
+                  </TableCell>
+                </TableRow>
+                <TableRow className="border-t-2 font-bold">
+                  <TableCell className="font-medium text-success whitespace-nowrap">(=) Ventas Netas</TableCell>
+                  <TableCell className="text-right font-mono text-success whitespace-nowrap">{formatCurrency(netSales)}</TableCell>
+                  <TableCell className="text-right text-muted-foreground whitespace-nowrap">100.0%</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium text-muted-foreground whitespace-nowrap">(-) Costo de Ventas (COGS)</TableCell>
+                  <TableCell className="text-right font-mono whitespace-nowrap">-{formatCurrency(cogs)}</TableCell>
+                  <TableCell className="text-right text-muted-foreground whitespace-nowrap">
+                    {netSales > 0 ? `${((cogs / netSales) * 100).toFixed(1)}%` : '—'}
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium text-destructive whitespace-nowrap">(-) Gastos Operativos</TableCell>
+                  <TableCell className="text-right font-mono text-destructive whitespace-nowrap">-{formatCurrency(expenses)}</TableCell>
+                  <TableCell className="text-right text-muted-foreground whitespace-nowrap">
+                    {netSales > 0 ? `${((expenses / netSales) * 100).toFixed(1)}%` : '—'}
+                  </TableCell>
+                </TableRow>
+                <TableRow className="bg-secondary/20">
+                  <TableCell className="font-bold font-display text-base whitespace-nowrap">(=) Ganancia Neta Final</TableCell>
+                  <TableCell className={`text-right font-bold font-mono text-base whitespace-nowrap ${netProfit >= 0 ? 'text-success' : 'text-destructive'}`}>
+                    {formatCurrency(netProfit)}
+                  </TableCell>
+                  <TableCell className="text-right font-bold text-muted-foreground whitespace-nowrap">
+                    {profitMargin.toFixed(1)}%
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

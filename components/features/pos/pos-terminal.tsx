@@ -259,7 +259,7 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
                               className="text-muted-foreground font-semibold shrink-0 cursor-help"
                               title={variant.product.category.description || undefined}
                             >
-                              Talla {variant.product.category.name}
+                              T: {variant.product.category.name}{variant.product.category.description ? ` (${variant.product.category.description})` : ''}
                             </span>
                           )}
                         </div>

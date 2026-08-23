@@ -325,19 +325,70 @@ export function MovementsReportClient({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          {/* Mobile Card View (< 768px) */}
+          <div className="block md:hidden space-y-3">
+            {filteredMovements.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground font-mono text-xs bg-background/50 border border-border p-4">
+                No se registraron movimientos en el período seleccionado.
+              </div>
+            ) : (
+              filteredMovements.map((m: any) => {
+                const isPositive = m.quantity > 0
+                return (
+                  <div key={m.id} className="bg-background border border-border p-3.5 space-y-2 text-xs shadow-sm">
+                    <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2">
+                      <div>
+                        <p className="font-bold text-foreground">{m.product_variants?.product?.name || '—'}</p>
+                        <p className="text-muted-foreground font-mono text-[11px]">
+                          SKU: {m.product_variants?.sku || '—'} · {new Date(m.created_at).toLocaleDateString('es-HN', {
+                            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+                      <span className={`font-mono font-bold text-sm ${isPositive ? 'text-success' : 'text-destructive'}`}>
+                        {isPositive ? `+${m.quantity}` : m.quantity} uds
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-muted-foreground font-mono text-[11px]">
+                      <div>
+                        <span className="text-foreground font-semibold">Tipo:</span> {MOVEMENT_TYPES_TRANSLATE[m.type] || m.type}
+                      </div>
+                      <div>
+                        <span className="text-foreground font-semibold">Por:</span> {m.usuario?.full_name || 'Sistema'}
+                      </div>
+                      <div>
+                        <span className="text-foreground font-semibold">Stock Antes:</span> {m.stock_before}
+                      </div>
+                      <div>
+                        <span className="text-foreground font-semibold">Stock Después:</span> <span className="font-bold text-foreground">{m.stock_after}</span>
+                      </div>
+                    </div>
+                    {m.notes && (
+                      <p className="text-muted-foreground italic text-[11px] border-t border-border/40 pt-1.5">
+                        {m.notes}
+                      </p>
+                    )}
+                  </div>
+                )
+              })
+            )}
+          </div>
+
+          {/* Desktop Table View (>= 768px) */}
+          <div className="hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="font-mono text-xs uppercase">Fecha</TableHead>
-                  <TableHead className="font-mono text-xs uppercase">Producto</TableHead>
-                  <TableHead className="font-mono text-xs uppercase">SKU</TableHead>
-                  <TableHead className="font-mono text-xs uppercase text-center">Tipo</TableHead>
-                  <TableHead className="font-mono text-xs uppercase text-center">Cantidad</TableHead>
-                  <TableHead className="font-mono text-xs uppercase text-center">Stock Antes</TableHead>
-                  <TableHead className="font-mono text-xs uppercase text-center">Stock Desp.</TableHead>
-                  <TableHead className="font-mono text-xs uppercase">Usuario</TableHead>
-                  <TableHead className="font-mono text-xs uppercase">Notas/Motivo</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">Fecha</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">Producto</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">SKU</TableHead>
+                  <TableHead className="font-mono text-xs uppercase text-center whitespace-nowrap">Tipo</TableHead>
+                  <TableHead className="font-mono text-xs uppercase text-center whitespace-nowrap">Cantidad</TableHead>
+                  <TableHead className="font-mono text-xs uppercase text-center whitespace-nowrap">Stock Antes</TableHead>
+                  <TableHead className="font-mono text-xs uppercase text-center whitespace-nowrap">Stock Desp.</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">Usuario</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">Notas/Motivo</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -352,7 +403,7 @@ export function MovementsReportClient({
                     const isPositive = m.quantity > 0
                     return (
                       <TableRow key={m.id} className="text-xs">
-                        <TableCell className="text-muted-foreground font-mono">
+                        <TableCell className="text-muted-foreground font-mono whitespace-nowrap">
                           {new Date(m.created_at).toLocaleDateString('es-HN', {
                             day: '2-digit',
                             month: 'short',
@@ -360,19 +411,19 @@ export function MovementsReportClient({
                             minute: '2-digit',
                           })}
                         </TableCell>
-                        <TableCell className="font-semibold text-foreground">{m.product_variants?.product?.name || '—'}</TableCell>
-                        <TableCell className="font-mono text-muted-foreground">{m.product_variants?.sku || '—'}</TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="font-semibold text-foreground whitespace-nowrap">{m.product_variants?.product?.name || '—'}</TableCell>
+                        <TableCell className="font-mono text-muted-foreground whitespace-nowrap">{m.product_variants?.sku || '—'}</TableCell>
+                        <TableCell className="text-center whitespace-nowrap">
                           <span className="font-medium text-foreground">
                             {MOVEMENT_TYPES_TRANSLATE[m.type] || m.type}
                           </span>
                         </TableCell>
-                        <TableCell className={`text-center font-mono font-bold ${isPositive ? 'text-success' : 'text-destructive'}`}>
+                        <TableCell className={`text-center font-mono font-bold whitespace-nowrap ${isPositive ? 'text-success' : 'text-destructive'}`}>
                           {isPositive ? `+${m.quantity}` : m.quantity}
                         </TableCell>
-                        <TableCell className="text-center font-mono text-muted-foreground">{m.stock_before}</TableCell>
-                        <TableCell className="text-center font-mono text-foreground font-semibold">{m.stock_after}</TableCell>
-                        <TableCell className="text-muted-foreground">{m.usuario?.full_name || 'Sistema'}</TableCell>
+                        <TableCell className="text-center font-mono text-muted-foreground whitespace-nowrap">{m.stock_before}</TableCell>
+                        <TableCell className="text-center font-mono text-foreground font-semibold whitespace-nowrap">{m.stock_after}</TableCell>
+                        <TableCell className="text-muted-foreground whitespace-nowrap">{m.usuario?.full_name || 'Sistema'}</TableCell>
                         <TableCell className="font-serif italic text-muted-foreground max-w-xs truncate" title={m.notes}>
                           {m.notes || '—'}
                         </TableCell>

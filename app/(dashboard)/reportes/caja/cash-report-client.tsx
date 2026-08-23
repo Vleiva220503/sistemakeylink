@@ -351,16 +351,61 @@ export function CashReportClient({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          {/* Mobile Card View (< 768px) */}
+          <div className="block md:hidden space-y-3">
+            {filteredMovements.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground font-mono text-xs bg-background/50 border border-border p-4">
+                No se registraron flujos en el período seleccionado.
+              </div>
+            ) : (
+              filteredMovements.map((m: any) => {
+                const isPositive = Number(m.amount) >= 0
+                return (
+                  <div key={m.id} className="bg-background border border-border p-3.5 space-y-2 text-xs shadow-sm">
+                    <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2">
+                      <div>
+                        <p className="font-semibold text-foreground">{m.cash_registers?.name || '—'}</p>
+                        <p className="text-muted-foreground font-mono text-[11px]">
+                          {new Date(m.created_at).toLocaleDateString('es-HN', {
+                            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+                      <span className={`font-mono font-bold text-sm ${isPositive ? 'text-success' : 'text-destructive'}`}>
+                        {isPositive ? `+${formatCurrency(Number(m.amount))}` : `-${formatCurrency(Math.abs(Number(m.amount)))}`}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-muted-foreground font-mono text-[11px]">
+                      <div>
+                        <span className="text-foreground font-semibold">Tipo:</span> {CASH_MOVEMENT_TYPES_TRANSLATE[m.type] || m.type}
+                      </div>
+                      <div>
+                        <span className="text-foreground font-semibold">Por:</span> {m.usuario?.full_name || 'Sistema'}
+                      </div>
+                    </div>
+                    {m.description && (
+                      <p className="text-muted-foreground italic text-[11px] border-t border-border/40 pt-1.5">
+                        {m.description}
+                      </p>
+                    )}
+                  </div>
+                )
+              })
+            )}
+          </div>
+
+          {/* Desktop Table View (>= 768px) */}
+          <div className="hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="font-mono text-xs uppercase">Fecha</TableHead>
-                  <TableHead className="font-mono text-xs uppercase">Caja</TableHead>
-                  <TableHead className="font-mono text-xs uppercase">Tipo</TableHead>
-                  <TableHead className="font-mono text-xs uppercase text-right">Monto</TableHead>
-                  <TableHead className="font-mono text-xs uppercase">Descripción</TableHead>
-                  <TableHead className="font-mono text-xs uppercase">Registrado Por</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">Fecha</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">Caja</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">Tipo</TableHead>
+                  <TableHead className="font-mono text-xs uppercase text-right whitespace-nowrap">Monto</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">Descripción</TableHead>
+                  <TableHead className="font-mono text-xs uppercase whitespace-nowrap">Registrado Por</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -375,7 +420,7 @@ export function CashReportClient({
                     const isPositive = Number(m.amount) >= 0
                     return (
                       <TableRow key={m.id} className="text-xs">
-                        <TableCell className="text-muted-foreground font-mono">
+                        <TableCell className="text-muted-foreground font-mono whitespace-nowrap">
                           {new Date(m.created_at).toLocaleDateString('es-HN', {
                             day: '2-digit',
                             month: 'short',
@@ -383,19 +428,19 @@ export function CashReportClient({
                             minute: '2-digit',
                           })}
                         </TableCell>
-                        <TableCell className="font-semibold text-foreground">{m.cash_registers?.name || '—'}</TableCell>
-                        <TableCell>
+                        <TableCell className="font-semibold text-foreground whitespace-nowrap">{m.cash_registers?.name || '—'}</TableCell>
+                        <TableCell className="whitespace-nowrap">
                           <span className="font-medium text-foreground">
                             {CASH_MOVEMENT_TYPES_TRANSLATE[m.type] || m.type}
                           </span>
                         </TableCell>
-                        <TableCell className={`text-right font-mono font-bold ${isPositive ? 'text-success' : 'text-destructive'}`}>
+                        <TableCell className={`text-right font-mono font-bold whitespace-nowrap ${isPositive ? 'text-success' : 'text-destructive'}`}>
                           {isPositive ? `+${formatCurrency(Number(m.amount))}` : `-${formatCurrency(Math.abs(Number(m.amount)))}`}
                         </TableCell>
                         <TableCell className="text-muted-foreground max-w-sm truncate" title={m.description}>
                           {m.description || '—'}
                         </TableCell>
-                        <TableCell className="text-muted-foreground">{m.usuario?.full_name || 'Sistema'}</TableCell>
+                        <TableCell className="text-muted-foreground whitespace-nowrap">{m.usuario?.full_name || 'Sistema'}</TableCell>
                       </TableRow>
                     )
                   })
