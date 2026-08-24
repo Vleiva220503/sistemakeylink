@@ -46,37 +46,101 @@ export default async function VentasPage() {
     )
   }
 
-  // Load all active product variants with their product info for the POS (limited to 250 for speed)
-  const { data: variantRows } = await (supabase as any)
+  // Fetch total count of active variants with stock > 0 to paginate and fetch all of them
+  const { count: totalCount, error: countError } = await (supabase as any)
     .from('product_variants')
-    .select(`
-      id,
-      sku,
-      size,
-      color,
-      quality,
-      price_override,
-      stock_quantity,
-      cost,
-      product:products(
-        id,
-        name,
-        sku,
-        base_price,
-        status,
-        brand:brands(name, logo_url),
-        category:categories(name, description),
-        product_images(url, is_primary, sort_order)
-      )
-    `)
+    .select('*', { count: 'exact', head: true })
     .eq('is_active', true)
     .gt('stock_quantity', 0)
-    .order('sku', { ascending: true })
 
-  const variants = (variantRows as any[]) || []
+  if (countError) {
+    console.error('Error counting variants for POS:', countError)
+  }
 
-  // Filter only active products
-  const activeVariants = variants.filter((v: any) => v.product?.status === 'active')
+  const CHUNK_SIZE = 1000
+  const total = totalCount || 0
+  const promises = []
+
+  for (let from = 0; from < total; from += CHUNK_SIZE) {
+    const to = from + CHUNK_SIZE - 1
+    promises.push(
+      (supabase as any)
+        .from('product_variants')
+        .select(`
+          id,
+          sku,
+          size,
+          color,
+          quality,
+          price_override,
+          stock_quantity,
+          cost,
+          product:products(
+            id,
+            name,
+            sku,
+            base_price,
+            status,
+            brand:brands(name, logo_url),
+            category:categories(name, description),
+            product_images(url, is_primary, sort_order)
+          )
+        `)
+        .eq('is_active', true)
+        .gt('stock_quantity', 0)
+        .order('sku', { ascending: true })
+        .range(from, to)
+    )
+  }
+
+  let activeVariants: any[] = []
+
+  if (total > 0) {
+    const results = await Promise.all(promises)
+    for (const r of results) {
+      if (r.error) {
+        console.error('Error fetching variants chunk:', r.error)
+      }
+      if (r.data) {
+        const chunkActive = r.data.filter((v: any) => v.product?.status === 'active')
+        activeVariants.push(...chunkActive)
+      }
+    }
+  } else {
+    // Fallback if count is 0 or failed to retrieve count: try to load first batch
+    const { data: fallbackRows, error: fallbackError } = await (supabase as any)
+      .from('product_variants')
+      .select(`
+        id,
+        sku,
+        size,
+        color,
+        quality,
+        price_override,
+        stock_quantity,
+        cost,
+        product:products(
+          id,
+          name,
+          sku,
+          base_price,
+          status,
+          brand:brands(name, logo_url),
+          category:categories(name, description),
+          product_images(url, is_primary, sort_order)
+        )
+      `)
+      .eq('is_active', true)
+      .gt('stock_quantity', 0)
+      .order('sku', { ascending: true })
+      .range(0, 999)
+
+    if (fallbackError) {
+      console.error('Fallback fetch error:', fallbackError)
+    }
+    const fallbackRowsArr = (fallbackRows as any[]) || []
+    activeVariants = fallbackRowsArr.filter((v: any) => v.product?.status === 'active')
+  }
 
   return (
     <div className="h-full">
