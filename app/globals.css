@@ -245,3 +245,19 @@
     max-width: 100% !important;
   }
 }
+
+/* Recharts event interaction and selection fix */
+.recharts-wrapper {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+.recharts-cartesian-axis-tick,
+.recharts-legend-item-text,
+.recharts-tooltip-wrapper {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}

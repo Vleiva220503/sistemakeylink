@@ -48,7 +48,7 @@ export default async function DashboardLayout({
         <Sidebar userRole={profile.role} />
       </div>
 
-      <div className="flex flex-col flex-1 md:pl-64">
+      <div className="flex flex-col flex-1 md:pl-64 min-w-0 overflow-hidden">
         <MobileSidebar userRole={profile.role} />
         
         <Header 
@@ -60,8 +60,8 @@ export default async function DashboardLayout({
           registerName={registerName}
         />
         
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
-          <div className="mx-auto max-w-7xl">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 md:p-8">
+          <div className="mx-auto max-w-7xl w-full min-w-0">
             {children}
           </div>
         </main>

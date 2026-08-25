@@ -68,9 +68,21 @@ export function TopProductsReportClient({
   const [searchQuery, setSearchQuery] = useState('')
 
   const [isMounted, setIsMounted] = useState(false)
+  const [chartKey, setChartKey] = useState(0)
 
   useEffect(() => {
     setIsMounted(true)
+
+    // Force chart re-mount on focus/visibility change to clear stuck tooltips/drag states
+    const handleReset = () => {
+      setChartKey(k => k + 1)
+    }
+    window.addEventListener('focus', handleReset)
+    document.addEventListener('visibilitychange', handleReset)
+    return () => {
+      window.removeEventListener('focus', handleReset)
+      document.removeEventListener('visibilitychange', handleReset)
+    }
   }, [])
 
   // Sync date changes with URL to fetch new server-side data
@@ -234,7 +246,7 @@ export function TopProductsReportClient({
         </CardHeader>
         <CardContent className="h-80">
           {isMounted ? (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer key={chartKey} width="100%" height="100%">
               <BarChart
                 data={chartData}
                 layout="vertical"

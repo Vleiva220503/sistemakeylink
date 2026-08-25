@@ -8,10 +8,12 @@ export default async function NewProductPage() {
   const [
     { data: categoriesData },
     { data: brandsData },
+    { data: suppliersData },
     { data: authData },
   ] = await Promise.all([
     supabase.from('categories').select('id, name, slug, description').eq('is_active', true).order('name'),
     supabase.from('brands').select('id, name, slug, description, logo_url').eq('is_active', true).order('name'),
+    supabase.from('suppliers').select('id, name').eq('is_active', true).order('name'),
     supabase.auth.getUser(),
   ])
 
@@ -33,6 +35,7 @@ export default async function NewProductPage() {
       <ProductForm
         categories={categoriesData || []}
         brands={brandsData || []}
+        suppliers={suppliersData || []}
         userRole={userRole}
       />
     </div>

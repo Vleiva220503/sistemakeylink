@@ -80,6 +80,8 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
   const [cart, setCart] = useState<CartItem[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash')
+  const [deliveryAmount, setDeliveryAmount] = useState<number>(0)
+  const [customerName, setCustomerName] = useState<string>('')
 
   const filteredVariants = useMemo(() => {
     if (!searchQuery.trim()) return variants
@@ -97,7 +99,7 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
   }, [searchQuery, variants])
 
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity - item.discount_amount), 0)
-  const total = subtotal
+  const total = subtotal + deliveryAmount
 
   const hasUnconfirmedLoss = useMemo(() => {
     return cart.some(item => {
@@ -212,7 +214,9 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
         payments: [{ amount: totalSnapshot, method: paymentMethod === 'cash' ? 'cash' : 'card', reference: null }],
         discount_amount: 0,
         discount_type: null,
-        notes: null
+        notes: null,
+        delivery_amount: deliveryAmount,
+        customer_name: customerName.trim() || 'Cliente Estándar'
       })
       if (result.error) {
         toast.error(`Error: ${result.error}`)
@@ -242,6 +246,8 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
             subtotal: cartSnapshot.reduce((sum, item) => sum + (item.price * item.quantity), 0),
             discountTotal: cartSnapshot.reduce((sum, item) => sum + item.discount_amount, 0),
             total: totalSnapshot,
+            deliveryAmount: deliveryAmount > 0 ? deliveryAmount : undefined,
+            customerName: customerName.trim() || null,
           }
           await generateInvoicePDF(invoiceData)
         } catch (pdfErr) {
@@ -253,6 +259,8 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
       toast.error('Error inesperado al procesar la venta')
     } finally {
       setIsProcessing(false)
+      setDeliveryAmount(0)
+      setCustomerName('')
     }
   }
 
@@ -551,6 +559,36 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
 
           {/* Footer — Totals + Payment + Checkout */}
           <div className="border-t border-border bg-background/50 p-4 flex flex-col gap-3 shrink-0">
+            {/* Customer name input */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-mono font-bold uppercase tracking-widest text-muted-foreground">
+                Nombre del Cliente (opcional)
+              </label>
+              <Input
+                type="text"
+                placeholder="Cliente Estándar"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                className="h-9 text-sm bg-background border-border font-sans"
+              />
+            </div>
+
+            {/* Delivery */}
+            <div className="flex items-center gap-3">
+              <label className="text-[10px] font-mono font-bold uppercase tracking-widest text-muted-foreground shrink-0">
+                Delivery (C$)
+              </label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={deliveryAmount || ''}
+                onChange={(e) => setDeliveryAmount(Math.max(0, Number(e.target.value) || 0))}
+                className="h-9 text-sm text-right bg-background border-border font-mono flex-1"
+              />
+            </div>
+
             {/* Totals */}
             <div className="space-y-1 font-mono text-sm">
               <div className="flex justify-between text-muted-foreground">
@@ -561,6 +599,12 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
                 <div className="flex justify-between text-destructive font-bold">
                   <span>DESCUENTOS</span>
                   <span>−{formatCurrency(cart.reduce((s, i) => s + i.discount_amount, 0))}</span>
+                </div>
+              )}
+              {deliveryAmount > 0 && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>DELIVERY</span>
+                  <span>+{formatCurrency(deliveryAmount)}</span>
                 </div>
               )}
               <div className="flex justify-between font-display font-black text-2xl pt-2 border-t border-border">

@@ -140,70 +140,79 @@ export function Sidebar({ userRole, onClose }: SidebarProps) {
 
       {/* Navigation List */}
       <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-        {navigation.map((item: NavItem) => {
-          const isActive = !item.children && pathname === item.href
-          const isGroupOpen = openGroups[item.name]
+        {(() => {
+          // Gather all defined hrefs across all groups and standalone items
+          const allHrefs = navigation.flatMap(n => n.href ? [n.href] : (n.children?.map(c => c.href) || []))
+          // Find the exact matching href or the longest matching prefix href (excluding '/')
+          const activeHref = allHrefs
+            .filter(h => pathname === h || (h !== '/' && pathname.startsWith(h + '/')))
+            .sort((a, b) => b.length - a.length)[0] || (allHrefs.includes(pathname) ? pathname : null)
 
-          return (
-            <div key={item.name} className="space-y-1">
-              {item.children ? (
-                <>
-                  <button
-                    onClick={() => toggleGroup(item.name)}
+          return navigation.map((item: NavItem) => {
+            const isActive = !item.children && item.href === activeHref
+            const isGroupOpen = openGroups[item.name]
+
+            return (
+              <div key={item.name} className="space-y-1">
+                {item.children ? (
+                  <>
+                    <button
+                      onClick={() => toggleGroup(item.name)}
+                      className={cn(
+                        "w-full flex items-center justify-between gap-2 rounded-none px-3 py-2 text-xs font-display font-bold uppercase tracking-wider transition-colors",
+                        isGroupOpen ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                      )}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.name}</span>
+                      </div>
+                      <ChevronDown
+                        className={cn("h-3.5 w-3.5 transition-transform duration-200", isGroupOpen ? "rotate-180 text-primary" : "text-muted-foreground")}
+                      />
+                    </button>
+                    {isGroupOpen && (
+                      <div className="ml-4 pl-3 border-l-2 border-border space-y-1 my-1">
+                        {item.children.map((child: { name: string; href: string }) => {
+                          const isChildActive = child.href === activeHref
+                          return (
+                            <Link
+                              key={child.name}
+                              href={child.href}
+                              onClick={onClose}
+                              className={cn(
+                                "block rounded-none px-3 py-1.5 text-xs font-semibold transition-all duration-150",
+                                isChildActive
+                                  ? "bg-primary text-primary-foreground font-bold shadow-sm"
+                                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                              )}
+                            >
+                              {child.name}
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <Link
+                    href={item.href || '#'}
+                    onClick={onClose}
                     className={cn(
-                      "w-full flex items-center justify-between gap-2 rounded-none px-3 py-2 text-xs font-display font-bold uppercase tracking-wider transition-colors",
-                      isGroupOpen ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                      "flex items-center gap-2.5 rounded-none px-3 py-2 text-xs font-display font-bold uppercase tracking-wider transition-all duration-150",
+                      isActive
+                        ? "bg-primary text-primary-foreground font-bold shadow-sm"
+                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
                     )}
                   >
-                    <div className="flex items-center gap-2.5">
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.name}</span>
-                    </div>
-                    <ChevronDown
-                      className={cn("h-3.5 w-3.5 transition-transform duration-200", isGroupOpen ? "rotate-180 text-primary" : "text-muted-foreground")}
-                    />
-                  </button>
-                  {isGroupOpen && (
-                    <div className="ml-4 pl-3 border-l-2 border-border space-y-1 my-1">
-                      {item.children.map((child: { name: string; href: string }) => {
-                        const isChildActive = pathname === child.href || (child.href !== '/' && pathname.startsWith(child.href))
-                        return (
-                          <Link
-                            key={child.name}
-                            href={child.href}
-                            onClick={onClose}
-                            className={cn(
-                              "block rounded-none px-3 py-1.5 text-xs font-semibold transition-all duration-150",
-                              isChildActive
-                                ? "bg-primary text-primary-foreground font-bold shadow-sm"
-                                : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-                            )}
-                          >
-                            {child.name}
-                          </Link>
-                        )
-                      })}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <Link
-                  href={item.href || '#'}
-                  onClick={onClose}
-                  className={cn(
-                    "flex items-center gap-2.5 rounded-none px-3 py-2 text-xs font-display font-bold uppercase tracking-wider transition-all duration-150",
-                    isActive
-                      ? "bg-primary text-primary-foreground font-bold shadow-sm"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-                  )}
-                >
-                  <item.icon className="h-4 w-4" />
-                  <span>{item.name}</span>
-                </Link>
-              )}
-            </div>
-          )
-        })}
+                    <item.icon className="h-4 w-4" />
+                    <span>{item.name}</span>
+                  </Link>
+                )}
+              </div>
+            )
+          })
+        })()}
       </div>
 
       {/* Footer Operator Info & Signout */}

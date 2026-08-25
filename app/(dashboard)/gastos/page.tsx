@@ -11,18 +11,22 @@ export default async function GastosPage() {
   const [{ data: expRows }, { data: catRows }] = await Promise.all([
     (supabase as any).from('expenses').select(`
       *, category:expense_categories(name)
-    `).order('expense_date', { ascending: false }).limit(100),
+    `).order('expense_date', { ascending: false }).limit(300),
     (supabase as any).from('expense_categories').select('*').eq('is_active', true).order('name'),
   ])
 
   const expenses = (expRows as any[]) || []
   const categories = (catRows as any[]) || []
 
-  const totalMonth = expenses
-    .filter((e: any) => new Date(e.expense_date).getMonth() === new Date().getMonth())
+  // Only count non-cancelled expenses in KPIs
+  const activeExpenses = expenses.filter((e: any) => !e.is_cancelled)
+
+  const totalMonth = activeExpenses
+    .filter((e: any) => new Date(e.expense_date).getMonth() === new Date().getMonth()
+      && new Date(e.expense_date).getFullYear() === new Date().getFullYear())
     .reduce((sum: number, e: any) => sum + Number(e.amount), 0)
 
-  const totalTotal = expenses.reduce((sum: number, e: any) => sum + Number(e.amount), 0)
+  const totalTotal = activeExpenses.reduce((sum: number, e: any) => sum + Number(e.amount), 0)
 
   return (
     <div className="space-y-6">

@@ -305,6 +305,21 @@ export async function updateExpense(id: string, formData: FormData) {
   return { success: true }
 }
 
+export async function cancelExpense(id: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autorizado' }
+
+  const { error } = await (supabase as any)
+    .from('expenses')
+    .update({ is_cancelled: true })
+    .eq('id', id)
+
+  if (error) return { error: error.message }
+  revalidatePath('/gastos')
+  return { success: true }
+}
+
 // ── PURCHASES ────────────────────────────────────────────────────────────────
 
 export async function createPurchase(formData: FormData) {

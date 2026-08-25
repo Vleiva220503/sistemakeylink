@@ -168,9 +168,9 @@ export function ProductsClient({ initialProducts, categories, brands, isAdmin }:
 
       {/* Filters Bar */}
       <div className="bg-card border border-border rounded-none p-4 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
           {/* Search */}
-          <div className="md:col-span-4 space-y-1.5">
+          <div className="sm:col-span-2 lg:col-span-4 space-y-1.5">
             <label className="text-xs font-semibold text-muted-foreground uppercase">Buscar</label>
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -184,7 +184,7 @@ export function ProductsClient({ initialProducts, categories, brands, isAdmin }:
           </div>
 
           {/* Category */}
-          <div className="md:col-span-2 space-y-1.5">
+          <div className="lg:col-span-2 space-y-1.5">
             <label className="text-xs font-semibold text-muted-foreground uppercase">Talla</label>
             <select
               className="w-full h-10 px-3 text-sm bg-background border border-border rounded-md outline-none focus:ring-1 focus:ring-primary"
@@ -199,7 +199,7 @@ export function ProductsClient({ initialProducts, categories, brands, isAdmin }:
           </div>
 
           {/* Brand */}
-          <div className="md:col-span-2 space-y-1.5">
+          <div className="lg:col-span-2 space-y-1.5">
             <label className="text-xs font-semibold text-muted-foreground uppercase">Marca</label>
             <select
               className="w-full h-10 px-3 text-sm bg-background border border-border rounded-md outline-none focus:ring-1 focus:ring-primary"
@@ -214,7 +214,7 @@ export function ProductsClient({ initialProducts, categories, brands, isAdmin }:
           </div>
 
           {/* Stock Status */}
-          <div className="md:col-span-2 space-y-1.5">
+          <div className="lg:col-span-2 space-y-1.5">
             <label className="text-xs font-semibold text-muted-foreground uppercase">Stock</label>
             <select
               className="w-full h-10 px-3 text-sm bg-background border border-border rounded-md outline-none focus:ring-1 focus:ring-primary"
@@ -229,7 +229,7 @@ export function ProductsClient({ initialProducts, categories, brands, isAdmin }:
           </div>
 
           {/* Sort */}
-          <div className="md:col-span-2 space-y-1.5">
+          <div className="lg:col-span-2 space-y-1.5">
             <label className="text-xs font-semibold text-muted-foreground uppercase">Ordenar</label>
             <select
               className="w-full h-10 px-3 text-sm bg-background border border-border rounded-md outline-none focus:ring-1 focus:ring-primary"

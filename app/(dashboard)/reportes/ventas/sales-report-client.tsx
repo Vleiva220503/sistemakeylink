@@ -52,9 +52,21 @@ export function SalesReportClient({
   const [searchQuery, setSearchQuery] = useState('')
 
   const [isMounted, setIsMounted] = useState(false)
+  const [chartKey, setChartKey] = useState(0)
 
   useEffect(() => {
     setIsMounted(true)
+
+    // Force chart re-mount on focus/visibility change to clear stuck tooltips/drag states
+    const handleReset = () => {
+      setChartKey(k => k + 1)
+    }
+    window.addEventListener('focus', handleReset)
+    document.addEventListener('visibilitychange', handleReset)
+    return () => {
+      window.removeEventListener('focus', handleReset)
+      document.removeEventListener('visibilitychange', handleReset)
+    }
   }, [])
 
   // Sync date changes with URL to fetch new server-side data
@@ -244,58 +256,58 @@ export function SalesReportClient({
       </div>
 
       {/* Overview stats cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <Card className="border-border bg-card">
-          <CardContent className="pt-5">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                <DollarSign className="h-5 w-5 text-primary" />
+          <CardContent className="p-3.5 sm:pt-5 sm:p-6">
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
               </div>
-              <div>
-                <p className="text-xl font-display font-black text-foreground">{formatCurrency(totalRevenue)}</p>
-                <p className="text-xs text-muted-foreground uppercase font-mono tracking-wider">Ingresos Netos</p>
+              <div className="min-w-0">
+                <p className="text-base sm:text-xl font-display font-black text-foreground truncate">{formatCurrency(totalRevenue)}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground uppercase font-mono tracking-wider truncate">Ingresos Netos</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="border-border bg-card">
-          <CardContent className="pt-5">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-lg bg-success/10 flex items-center justify-center">
-                <ShoppingCart className="h-5 w-5 text-success" />
+          <CardContent className="p-3.5 sm:pt-5 sm:p-6">
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-success/10 flex items-center justify-center shrink-0">
+                <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 text-success" />
               </div>
-              <div>
-                <p className="text-xl font-display font-black text-success">{completedSales.length}</p>
-                <p className="text-xs text-muted-foreground uppercase font-mono tracking-wider">Ventas Exitosas</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border bg-card">
-          <CardContent className="pt-5">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-lg bg-warning/10 flex items-center justify-center">
-                <TrendingUp className="h-5 w-5 text-warning" />
-              </div>
-              <div>
-                <p className="text-xl font-display font-black text-warning">{formatCurrency(avgTicket)}</p>
-                <p className="text-xs text-muted-foreground uppercase font-mono tracking-wider">Ticket Promedio</p>
+              <div className="min-w-0">
+                <p className="text-base sm:text-xl font-display font-black text-success truncate">{completedSales.length}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground uppercase font-mono tracking-wider truncate">Ventas Exitosas</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="border-border bg-card">
-          <CardContent className="pt-5">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-lg bg-destructive/10 flex items-center justify-center">
-                <DollarSign className="h-5 w-5 text-destructive" />
+          <CardContent className="p-3.5 sm:pt-5 sm:p-6">
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-warning/10 flex items-center justify-center shrink-0">
+                <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-warning" />
               </div>
-              <div>
-                <p className="text-xl font-display font-black text-destructive">{formatCurrency(totalDiscount)}</p>
-                <p className="text-xs text-muted-foreground uppercase font-mono tracking-wider">Descuentos</p>
+              <div className="min-w-0">
+                <p className="text-base sm:text-xl font-display font-black text-warning truncate">{formatCurrency(avgTicket)}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground uppercase font-mono tracking-wider truncate">Ticket Promedio</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border bg-card">
+          <CardContent className="p-3.5 sm:pt-5 sm:p-6">
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
+                <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-base sm:text-xl font-display font-black text-destructive truncate">{formatCurrency(totalDiscount)}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground uppercase font-mono tracking-wider truncate">Descuentos</p>
               </div>
             </div>
           </CardContent>
@@ -348,7 +360,7 @@ export function SalesReportClient({
         </CardHeader>
         <CardContent className="h-72">
           {isMounted ? (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer key={chartKey} width="100%" height="100%">
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">

@@ -81,6 +81,8 @@ interface SaleDetail {
   discount_amount: number
   discount_type: string | null
   total: number
+  delivery_amount?: number
+  customer_name?: string | null
   amount_paid: number
   amount_pending: number
   notes: string | null
@@ -202,7 +204,8 @@ export function SaleDetailClient({ sale, isAdmin, currentCashierName }: SaleDeta
         subtotal: Number(sale.subtotal),
         discountTotal: Number(sale.discount_amount),
         total: Number(sale.total),
-        customerName: sale.customer?.name ?? null,
+        deliveryAmount: sale.delivery_amount && Number(sale.delivery_amount) > 0 ? Number(sale.delivery_amount) : undefined,
+        customerName: sale.customer_name || sale.customer?.name || null,
         notes: sale.notes ?? null,
       }
 
@@ -354,7 +357,9 @@ export function SaleDetailClient({ sale, isAdmin, currentCashierName }: SaleDeta
               </div>
               <div className="min-w-0">
                 <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-0.5">Cliente</p>
-                <p className="font-semibold text-sm truncate">{sale.customer?.name ?? 'Cliente General'}</p>
+                <p className="font-semibold text-sm truncate">
+                  {sale.customer_name || sale.customer?.name || 'Cliente General'}
+                </p>
                 {sale.customer?.phone && (
                   <p className="text-xs text-muted-foreground">{sale.customer.phone}</p>
                 )}
@@ -429,7 +434,11 @@ export function SaleDetailClient({ sale, isAdmin, currentCashierName }: SaleDeta
             </span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 relative">
+          <div className="md:hidden flex items-center justify-end gap-1 px-3 py-1.5 bg-muted/40 text-[11px] font-mono text-muted-foreground border-b border-border">
+            <span>Desliza para ver más</span>
+            <span className="font-bold">→</span>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -502,6 +511,12 @@ export function SaleDetailClient({ sale, isAdmin, currentCashierName }: SaleDeta
               <div className="flex justify-between text-destructive">
                 <span>Descuento</span>
                 <span>-{formatCurrency(Number(sale.discount_amount))}</span>
+              </div>
+            )}
+            {sale.delivery_amount && Number(sale.delivery_amount) > 0 && (
+              <div className="flex justify-between text-muted-foreground">
+                <span>Delivery</span>
+                <span>+{formatCurrency(Number(sale.delivery_amount))}</span>
               </div>
             )}
             <hr className="border-border" />

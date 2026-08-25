@@ -54,6 +54,7 @@ const productSchema = z.object({
   description: z.string().optional().nullable(),
   category_id: z.string().min(1, 'La talla es requerida'),
   brand_id: z.string().optional().nullable(),
+  supplier_id: z.string().min(1, 'El proveedor es requerido'),
   base_price: z.coerce
     .number()
     .min(0.01, 'El precio de venta debe ser mayor que 0'),
@@ -85,10 +86,16 @@ interface BrandOption {
   logo_url?: string | null
 }
 
+interface SupplierOption {
+  id: string
+  name: string
+}
+
 interface ProductFormProps {
   initialProduct?: ProductWithDetails
   categories?: CategoryOption[]
   brands?: BrandOption[]
+  suppliers?: SupplierOption[]
   /** Improvement G: role determines whether the cost field is shown */
   userRole?: UserRole
 }
@@ -98,6 +105,7 @@ export function ProductForm({
   initialProduct,
   categories = [],
   brands = [],
+  suppliers = [],
   userRole,
 }: ProductFormProps) {
   const router = useRouter()
@@ -119,6 +127,7 @@ export function ProductForm({
       description: initialProduct?.description || '',
       category_id: initialProduct?.category_id || '',
       brand_id: initialProduct?.brand_id || '',
+      supplier_id: (initialProduct as any)?.supplier_id || '',
       base_price: initialProduct?.base_price ?? 0,
       stock_quantity: initialVariant?.stock_quantity ?? 0,
       cost: initialVariant?.cost ?? 0,
@@ -170,6 +179,7 @@ export function ProductForm({
           status: 'active' as const,
           category_id: data.category_id || null,
           brand_id: data.brand_id || null,
+          supplier_id: data.supplier_id || null,
         },
         // One default variant always
         variants: [
@@ -223,6 +233,32 @@ export function ProductForm({
   }
 
   // ─── Render ─────────────────────────────────────────────────────────────────
+  // If there are no suppliers, show instruction card.
+  if (suppliers.length === 0) {
+    return (
+      <div className="space-y-6 max-w-2xl mx-auto py-12">
+        <Card className="border-destructive bg-destructive/5 text-destructive-foreground">
+          <CardHeader>
+            <CardTitle className="text-xl font-bold flex items-center gap-2 font-display uppercase tracking-wide">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Proveedor Obligatorio Requerido
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm font-sans">
+              Debes crear al menos un proveedor en el sistema antes de agregar o editar productos.
+            </p>
+            <div className="pt-2">
+              <Link href="/proveedores" className={buttonVariants({ variant: 'default' })}>
+                Ir a Crear Proveedor
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -598,6 +634,40 @@ export function ProductForm({
                           {brands.map((b) => (
                             <option key={b.id} value={b.id}>
                               {b.name}
+                            </option>
+                          ))}
+                        </select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Proveedor */}
+                  <FormField
+                    control={form.control}
+                    name="supplier_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-semibold flex items-center justify-between">
+                          <span>Proveedor *</span>
+                          <Link
+                            href="/proveedores"
+                            className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
+                          >
+                            <Plus className="h-3 w-3" /> Crear
+                          </Link>
+                        </FormLabel>
+                        <select
+                          id="supplier-select"
+                          className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+                          value={field.value ?? ''}
+                          onChange={field.onChange}
+                          disabled={isLoading}
+                        >
+                          <option value="">-- Selecciona un proveedor --</option>
+                          {suppliers.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name}
                             </option>
                           ))}
                         </select>

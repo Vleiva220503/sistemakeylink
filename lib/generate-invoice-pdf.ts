@@ -24,6 +24,7 @@ export interface InvoiceData {
   subtotal: number
   discountTotal: number
   total: number
+  deliveryAmount?: number
   customerName?: string | null
   notes?: string | null
 }
@@ -288,6 +289,16 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<void> {
     ty += 9
   }
 
+  // Delivery row (if applicable)
+  if (data.deliveryAmount && data.deliveryAmount > 0) {
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7.5)
+    doc.setTextColor(...BRAND.gray)
+    doc.text('DELIVERY', totalsX + 4, ty + 4)
+    doc.text(`+ ${formatNIO(data.deliveryAmount)}`, totalsX + totalsW - 4, ty + 4, { align: 'right' })
+    ty += 9
+  }
+
   // TOTAL — orange background row
   doc.setFillColor(...BRAND.accent)
   doc.rect(totalsX, ty, totalsW, 12, 'F')
@@ -339,17 +350,11 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<void> {
   doc.setTextColor(...BRAND.accent)
   doc.text('★  MUNDO DE CALZADO  ★', pageW / 2, footerY + 8, { align: 'center' })
 
-  // Tagline / location
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(7.5)
-  doc.setTextColor(...BRAND.gray)
-  doc.text('Calzado · Ropa · Accesorios  ·  Managua, Nicaragua', pageW / 2, footerY + 14, { align: 'center' })
-
   // Thank you message
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(8)
   doc.setTextColor(...BRAND.primary)
-  doc.text('¡Gracias por su preferencia! Vuelva pronto.', pageW / 2, footerY + 20, { align: 'center' })
+  doc.text('¡Gracias por su preferencia! Vuelva pronto. No se permiten devoluciones ni cambios', pageW / 2, footerY + 16, { align: 'center' })
 
   // ─── SAVE ─────────────────────────────────────────────────────────────────
   const filename = `Factura_${String(data.saleNumber).replace(/\//g, '-')}_${
