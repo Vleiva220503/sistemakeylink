@@ -1,6 +1,6 @@
 // lib/generate-invoice-pdf.ts
-// Client-side only — uses jsPDF to generate and auto-download a professional A4 invoice
-// Import from 'jspdf' and 'jspdf-autotable' which are installed as regular dependencies
+// Client-side only — uses jsPDF to generate and auto-download a clean minimal A4 invoice
+// Exactly matching the clean white layout with navy blue typography
 
 export interface InvoiceItem {
   name: string
@@ -29,22 +29,19 @@ export interface InvoiceData {
   notes?: string | null
 }
 
-// ─── Paleta corporativa Mundo de Calzado ────────────────────────────────────
+// ─── Paleta limpia Mundo de Calzado ─────────────────────────────────────────
 const BRAND = {
-  primary:     [26, 25, 23]     as [number, number, number], // Charcoal #1A1917
-  accent:      [224, 75, 22]    as [number, number, number], // Naranja Quemado #E04B16
-  accentLight: [254, 236, 227]  as [number, number, number], // Naranja tint claro
-  accentMid:   [240, 130, 90]   as [number, number, number], // Naranja medio para subheader strip
-  gray:        [110, 106, 99]   as [number, number, number], // Warm Taupe
-  lightGray:   [247, 245, 240]  as [number, number, number], // Crema cálido
+  navy:        [30, 58, 138]    as [number, number, number], // Azul Marino #1E3A8A
+  textDark:    [30, 41, 59]     as [number, number, number], // Slate 800 #1E293B
+  textMuted:   [100, 116, 139]  as [number, number, number], // Slate 500 #64748B
+  lineBlue:    [148, 163, 184]  as [number, number, number], // Slate 400 #94A3B8 line
+  tableHeadBg: [241, 245, 249]  as [number, number, number], // Slate 100 #F1F5F9
+  tableBorder: [226, 232, 240]  as [number, number, number], // Slate 200 #E2E8F0
   white:       [255, 255, 255]  as [number, number, number],
-  border:      [224, 220, 211]  as [number, number, number], // Warm Oat Border
-  text:        [26, 25, 23]     as [number, number, number], // Charcoal
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-/** Formatea montos en Córdobas nicaragüenses (C$) */
 function formatNIO(amount: number): string {
   return `C$ ${amount.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
@@ -68,53 +65,45 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<void> {
   const doc    = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const pageW  = doc.internal.pageSize.getWidth()   // 210 mm
   const pageH  = doc.internal.pageSize.getHeight()  // 297 mm
-  const margin = 16
-  const contentW = pageW - margin * 2               // 178 mm
+  const margin = 18
+  const contentW = pageW - margin * 2               // 174 mm
 
-  // ─── HEADER BAND (full-width dark block) ──────────────────────────────────
-  const headerH = 52
-  doc.setFillColor(...BRAND.primary)
-  doc.rect(0, 0, pageW, headerH, 'F')
+  let y = 24
 
-  // Naranja left accent bar (thick)
-  doc.setFillColor(...BRAND.accent)
-  doc.rect(0, 0, 8, headerH, 'F')
-
-  // ── Left column: brand identity ──────────────────────────────────────────
-  const leftX = margin + 2
-
-  // "MUNDO DE CALZADO" — elemento más grande y prominente
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(24)
-  doc.setTextColor(...BRAND.white)
-  doc.text('MUNDO DE CALZADO', leftX, 18)
-
-  // Tagline
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8.5)
-  doc.setTextColor(...BRAND.accentLight)
-  doc.text('Calzado · Ropa · Accesorios', leftX, 26)
-
-  // Ubicación
-  doc.setFontSize(7.5)
-  doc.setTextColor(...BRAND.gray)
-  doc.text('Managua, Nicaragua', leftX, 32.5)
-
-  // ── Right column: invoice metadata ────────────────────────────────────────
-  const rightX = pageW - margin
-
-  // FACTURA label + número
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(9)
-  doc.setTextColor(...BRAND.accentLight)
-  doc.text('FACTURA', rightX, 10, { align: 'right' })
-
+  // ── 1. HEADER (Clean Minimal White) ───────────────────────────────────────
+  // Left: Brand title & Tagline
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(18)
-  doc.setTextColor(...BRAND.accent)
-  doc.text(`#${data.saleNumber}`, rightX, 21, { align: 'right' })
+  doc.setTextColor(...BRAND.navy)
+  doc.text('MUNDO DE CALZADO', margin, y)
 
-  // Fecha
+  y += 6
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8.5)
+  doc.setTextColor(...BRAND.textMuted)
+  doc.text('Calzado', margin, y)
+
+  y += 4.5
+  doc.setFontSize(8.5)
+  doc.text('Managua, Nicaragua', margin, y)
+
+  // Right: FACTURA & Sale Details
+  const rightX = pageW - margin
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(13)
+  doc.setTextColor(...BRAND.navy)
+  doc.text('FACTURA', rightX, 24, { align: 'right' })
+
+  const saleNumStr = String(data.saleNumber).startsWith('VTA') || String(data.saleNumber).startsWith('#')
+    ? String(data.saleNumber)
+    : `#VTA-${String(data.saleNumber)}`
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.setTextColor(...BRAND.textDark)
+  doc.text(saleNumStr, rightX, 30, { align: 'right' })
+
   const dateStr = data.date.toLocaleDateString('es-NI', {
     timeZone: 'America/Managua',
     year: 'numeric', month: 'long', day: 'numeric',
@@ -123,108 +112,75 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<void> {
     timeZone: 'America/Managua',
     hour: '2-digit', minute: '2-digit',
   })
-  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8.5)
+  doc.setTextColor(...BRAND.textMuted)
+  doc.text(`${dateStr},`, rightX, 35, { align: 'right' })
+  doc.text(timeStr, rightX, 39.5, { align: 'right' })
+
+  // Divider Line below header
+  y = 46
+  doc.setDrawColor(...BRAND.lineBlue)
+  doc.setLineWidth(0.6)
+  doc.line(margin, y, pageW - margin, y)
+
+  // ── 2. CLIENTE & DETALLES DE LA VENTA ─────────────────────────────────────
+  y += 8
+  const clientName = data.customerName?.trim() || 'Cliente Estándar'
+
+  // Left col: CLIENTE
+  doc.setFont('helvetica', 'bold')
   doc.setFontSize(7.5)
-  doc.setTextColor(...BRAND.white)
-  doc.text(`${dateStr}  ${timeStr}`, rightX, 29, { align: 'right' })
+  doc.setTextColor(...BRAND.navy)
+  doc.text('CLIENTE', margin, y)
 
-  // Caja · Cajero · Pago — inline right
-  const meta = `Caja: ${data.registerName}  ·  Cajero: ${data.cashierName}  ·  Pago: ${paymentLabel(data.paymentMethod)}`
-  doc.setFontSize(7)
-  doc.setTextColor(...BRAND.accentLight)
-  doc.text(meta, rightX, 36, { align: 'right' })
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.setTextColor(...BRAND.textDark)
+  doc.text(clientName, margin, y + 6)
 
-  // ── Acento naranja narrow strip debajo del header ─────────────────────────
-  doc.setFillColor(...BRAND.accent)
-  doc.rect(0, headerH, pageW, 2.5, 'F')
+  // Right col: DETALLES DE LA VENTA
+  const col2X = margin + (contentW / 2) + 2
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(7.5)
+  doc.setTextColor(...BRAND.navy)
+  doc.text('DETALLES DE LA VENTA', col2X, y)
 
-  // ─── CUSTOMER ROW ─────────────────────────────────────────────────────────
-  let y = headerH + 8
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8.5)
+  doc.setTextColor(...BRAND.textDark)
+  const metaLine = `Caja: ${data.registerName}  ·  Cajero: ${data.cashierName}  ·  Pago: ${paymentLabel(data.paymentMethod)}`
+  doc.text(metaLine, col2X, y + 6)
 
-  if (data.customerName) {
-    doc.setFillColor(...BRAND.accentLight)
-    doc.roundedRect(margin, y, contentW, 9, 1.5, 1.5, 'F')
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(7)
-    doc.setTextColor(...BRAND.accent)
-    doc.text('CLIENTE:', margin + 5, y + 5.8)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(...BRAND.text)
-    doc.text(data.customerName, margin + 24, y + 5.8)
-    y += 13
-  } else {
-    y += 2
-  }
+  y += 15
 
-  // ─── ITEMS TABLE ──────────────────────────────────────────────────────────
-  // Determine if any item has a talla defined
-  const hasTalla = data.items.some(i => i.talla)
-
-  // Build columns dynamically
-  const headRow = hasTalla
-    ? [
-        { content: 'DESCRIPCIÓN',  styles: { halign: 'left'   as const } },
-        { content: 'TALLA',        styles: { halign: 'center' as const } },
-        { content: 'DESC. TALLA',  styles: { halign: 'left'   as const } },
-        { content: 'SKU',          styles: { halign: 'left'   as const } },
-        { content: 'CANT.',        styles: { halign: 'center' as const } },
-        { content: 'P. UNIT.',     styles: { halign: 'right'  as const } },
-        { content: 'TOTAL',        styles: { halign: 'right'  as const } },
-      ]
-    : [
-        { content: 'DESCRIPCIÓN',  styles: { halign: 'left'   as const } },
-        { content: 'SKU',          styles: { halign: 'left'   as const } },
-        { content: 'CANT.',        styles: { halign: 'center' as const } },
-        { content: 'P. UNIT.',     styles: { halign: 'right'  as const } },
-        { content: 'TOTAL',        styles: { halign: 'right'  as const } },
-      ]
+  // ── 3. PRODUCT TABLE ──────────────────────────────────────────────────────
+  const headRow = [
+    { content: 'DESCRIPCIÓN', styles: { halign: 'left'   as const } },
+    { content: 'TALLA',       styles: { halign: 'center' as const } },
+    { content: 'SKU',         styles: { halign: 'center' as const } },
+    { content: 'CANT.',       styles: { halign: 'center' as const } },
+    { content: 'P. UNIT.',    styles: { halign: 'right'  as const } },
+    { content: 'TOTAL',       styles: { halign: 'right'  as const } },
+  ]
 
   const bodyRows = data.items.map(item => {
     const lineTotal = (item.unitPrice * item.quantity) - item.discount
     let descName = item.name
     if (item.discount > 0) {
-      const typeStr = item.discountType === 'percentage' ? `%` : 'fixed'
       const detailStr = item.discountType === 'percentage' ? `${item.discountVal}%` : formatNIO(item.discount)
-      descName += `\n(Desc. ${detailStr})`
+      descName += ` (Desc. ${detailStr})`
     }
-    if (hasTalla) {
-      return [
-        { content: descName,                                           styles: { halign: 'left'   as const } },
-        { content: item.talla || '—',                                  styles: { halign: 'center' as const, fontStyle: 'bold' as const, textColor: BRAND.accent } },
-        { content: item.tallaDescription || '—',                       styles: { halign: 'left'   as const, textColor: BRAND.gray, fontSize: 7.5 } },
-        { content: item.sku,                                           styles: { halign: 'left'   as const, textColor: BRAND.gray, fontSize: 7 } },
-        { content: String(item.quantity),                              styles: { halign: 'center' as const } },
-        { content: formatNIO(item.unitPrice),                          styles: { halign: 'right'  as const } },
-        { content: formatNIO(lineTotal),                               styles: { halign: 'right'  as const, fontStyle: 'bold' as const } },
-      ]
-    } else {
-      return [
-        { content: descName,                                           styles: { halign: 'left'   as const } },
-        { content: item.sku,                                           styles: { halign: 'left'   as const, textColor: BRAND.gray, fontSize: 7 } },
-        { content: String(item.quantity),                              styles: { halign: 'center' as const } },
-        { content: formatNIO(item.unitPrice),                          styles: { halign: 'right'  as const } },
-        { content: formatNIO(lineTotal),                               styles: { halign: 'right'  as const, fontStyle: 'bold' as const } },
-      ]
-    }
-  })
+    const tallaVal = item.talla || (item as any).size || '—'
 
-  const columnStyles: any = hasTalla
-    ? {
-        0: { cellWidth: 46 },
-        1: { cellWidth: 12 },
-        2: { cellWidth: 22 },
-        3: { cellWidth: 26 },
-        4: { cellWidth: 12 },
-        5: { cellWidth: 26 },
-        6: { cellWidth: 'auto' as const },
-      }
-    : {
-        0: { cellWidth: 74 },
-        1: { cellWidth: 30 },
-        2: { cellWidth: 14 },
-        3: { cellWidth: 28 },
-        4: { cellWidth: 'auto' as const },
-      }
+    return [
+      { content: descName,                                  styles: { halign: 'left'   as const } },
+      { content: tallaVal,                                  styles: { halign: 'center' as const } },
+      { content: item.sku,                                  styles: { halign: 'center' as const, textColor: BRAND.textMuted } },
+      { content: String(item.quantity),                     styles: { halign: 'center' as const, fontStyle: 'bold' as const } },
+      { content: formatNIO(item.unitPrice),                 styles: { halign: 'right'  as const } },
+      { content: formatNIO(lineTotal),                      styles: { halign: 'right'  as const } },
+    ]
+  })
 
   autoTable(doc, {
     startY: y,
@@ -234,132 +190,111 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<void> {
     tableWidth: contentW,
     styles: {
       font: 'helvetica',
-      fontSize: 8.5,
-      cellPadding: { top: 3.5, bottom: 3.5, left: 5, right: 5 },
-      textColor: BRAND.text,
-      lineColor: BRAND.border,
-      lineWidth: 0.2,
+      fontSize: 8,
+      cellPadding: { top: 3.5, bottom: 3.5, left: 4, right: 4 },
+      textColor: BRAND.textDark,
+      lineColor: BRAND.tableBorder,
+      lineWidth: 0.3,
     },
     headStyles: {
-      fillColor: BRAND.primary,
-      textColor: BRAND.white,
+      fillColor: BRAND.tableHeadBg,
+      textColor: BRAND.navy,
       fontStyle: 'bold',
       fontSize: 7.5,
-      cellPadding: { top: 4, bottom: 4, left: 5, right: 5 },
+      cellPadding: { top: 4, bottom: 4, left: 4, right: 4 },
     },
     alternateRowStyles: {
-      fillColor: BRAND.lightGray,
+      fillColor: BRAND.white,
     },
-    columnStyles,
+    columnStyles: {
+      0: { cellWidth: 58 },
+      1: { cellWidth: 20 },
+      2: { cellWidth: 32 },
+      3: { cellWidth: 16 },
+      4: { cellWidth: 24 },
+      5: { cellWidth: 'auto' as const },
+    },
   })
 
-  // ─── TOTALS BLOCK ─────────────────────────────────────────────────────────
-  const finalY = (doc as any).lastAutoTable.finalY + 5
-  const totalsW = 78
-  const totalsX = pageW - margin - totalsW
+  // ── 4. RESUMEN DE TOTALES ─────────────────────────────────────────────────
+  let finalY = (doc as any).lastAutoTable.finalY + 6
+  const totalsX = pageW - margin
 
-  // Naranja accent line above totals
-  doc.setDrawColor(...BRAND.accent)
-  doc.setLineWidth(0.6)
-  doc.line(totalsX, finalY, totalsX + totalsW, finalY)
-
-  let ty = finalY + 4
-
-  if (data.discountTotal > 0) {
-    // Subtotal
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
-    doc.setTextColor(...BRAND.gray)
-    doc.text('SUBTOTAL', totalsX + 4, ty + 4)
-    doc.text(formatNIO(data.subtotal), totalsX + totalsW - 4, ty + 4, { align: 'right' })
-    ty += 9
-
-    // Discount
-    doc.setTextColor(220, 38, 38)
-    doc.text('DESCUENTO', totalsX + 4, ty + 4)
-    doc.text(`- ${formatNIO(data.discountTotal)}`, totalsX + totalsW - 4, ty + 4, { align: 'right' })
-    ty += 9
-  } else {
-    // Subtotal row when no discount
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(7.5)
-    doc.setTextColor(...BRAND.gray)
-    doc.text('SUBTOTAL', totalsX + 4, ty + 4)
-    doc.text(formatNIO(data.subtotal), totalsX + totalsW - 4, ty + 4, { align: 'right' })
-    ty += 9
-  }
-
-  // Delivery row (if applicable)
-  if (data.deliveryAmount && data.deliveryAmount > 0) {
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(7.5)
-    doc.setTextColor(...BRAND.gray)
-    doc.text('DELIVERY', totalsX + 4, ty + 4)
-    doc.text(`+ ${formatNIO(data.deliveryAmount)}`, totalsX + totalsW - 4, ty + 4, { align: 'right' })
-    ty += 9
-  }
-
-  // TOTAL — orange background row
-  doc.setFillColor(...BRAND.accent)
-  doc.rect(totalsX, ty, totalsW, 12, 'F')
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(11)
-  doc.setTextColor(...BRAND.white)
-  doc.text('TOTAL', totalsX + 5, ty + 8)
-  doc.text(formatNIO(data.total), totalsX + totalsW - 5, ty + 8, { align: 'right' })
-  ty += 12
-
-  // Payment badge
-  doc.setFillColor(...BRAND.accentLight)
-  doc.roundedRect(totalsX, ty + 2, totalsW, 8, 1.5, 1.5, 'F')
+  // Subtotal
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(7.5)
-  doc.setTextColor(...BRAND.accent)
-  doc.text(
-    `Pagado con: ${paymentLabel(data.paymentMethod)}`,
-    totalsX + totalsW / 2, ty + 7.3, { align: 'center' }
-  )
-  ty += 14
+  doc.setFontSize(8.5)
+  doc.setTextColor(...BRAND.textMuted)
+  doc.text('Subtotal', totalsX - 52, finalY)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(...BRAND.navy)
+  doc.text(formatNIO(data.subtotal), totalsX, finalY, { align: 'right' })
 
-  // ─── NOTES ────────────────────────────────────────────────────────────────
-  if (data.notes) {
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(7.5)
-    doc.setTextColor(...BRAND.gray)
-    doc.text('NOTAS:', margin, ty)
+  // Discount (if any)
+  if (data.discountTotal > 0) {
+    finalY += 6
     doc.setFont('helvetica', 'normal')
-    doc.setTextColor(...BRAND.text)
-    doc.text(data.notes, margin + 16, ty)
+    doc.setTextColor(220, 38, 38)
+    doc.text('Descuentos', totalsX - 52, finalY)
+    doc.setFont('helvetica', 'bold')
+    doc.text(`- ${formatNIO(data.discountTotal)}`, totalsX, finalY, { align: 'right' })
   }
 
-  // ─── FOOTER ───────────────────────────────────────────────────────────────
-  const footerY = pageH - 22
+  // Delivery (if any)
+  if (data.deliveryAmount && data.deliveryAmount > 0) {
+    finalY += 6
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(...BRAND.textMuted)
+    doc.text('Delivery', totalsX - 52, finalY)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...BRAND.navy)
+    doc.text(`+ ${formatNIO(data.deliveryAmount)}`, totalsX, finalY, { align: 'right' })
+  }
 
-  // Thin accent line
-  doc.setDrawColor(...BRAND.border)
+  // Line above TOTAL
+  finalY += 8
+  doc.setDrawColor(...BRAND.lineBlue)
+  doc.setLineWidth(0.6)
+  doc.line(margin, finalY, pageW - margin, finalY)
+
+  // TOTAL
+  finalY += 7
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  doc.setTextColor(...BRAND.navy)
+  doc.text('TOTAL', margin + 70, finalY)
+  doc.setFontSize(12)
+  doc.text(formatNIO(data.total), totalsX, finalY, { align: 'right' })
+
+  // Divider Line above footer
+  finalY += 14
+  doc.setDrawColor(226, 232, 240)
   doc.setLineWidth(0.3)
-  doc.line(margin, footerY, pageW - margin, footerY)
+  doc.line(margin, finalY, pageW - margin, finalY)
 
-  // Accent bar above footer text
-  doc.setFillColor(...BRAND.accent)
-  doc.rect(margin, footerY + 1, contentW, 1, 'F')
+  // ── 5. FOOTER (Clean Thank You Message) ───────────────────────────────────
+  finalY += 8
 
-  // Brand name in footer
+  const shortFirstName = clientName.split(' ')[0]
+  const thankMsg = clientName !== 'Cliente Estándar'
+    ? `¡Gracias por su preferencia, ${shortFirstName}!`
+    : `¡Gracias por su preferencia!`
+
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(9)
-  doc.setTextColor(...BRAND.accent)
-  doc.text('★  MUNDO DE CALZADO  ★', pageW / 2, footerY + 8, { align: 'center' })
+  doc.setTextColor(...BRAND.navy)
+  doc.text(thankMsg, pageW / 2, finalY, { align: 'center' })
 
-  // Thank you message
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8)
-  doc.setTextColor(...BRAND.primary)
-  doc.text('¡Gracias por su preferencia! Vuelva pronto. No se permiten devoluciones ni cambios', pageW / 2, footerY + 16, { align: 'center' })
+  finalY += 4.5
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(7.5)
+  doc.setTextColor(...BRAND.textMuted)
+  doc.text('No se aceptan devoluciones', pageW / 2, finalY, { align: 'center' })
 
-  // ─── SAVE ─────────────────────────────────────────────────────────────────
+  // ── 6. SAVE ───────────────────────────────────────────────────────────────
   const filename = `Factura_${String(data.saleNumber).replace(/\//g, '-')}_${
     data.date.toISOString().slice(0, 10)
   }.pdf`
 
   doc.save(filename)
 }
+

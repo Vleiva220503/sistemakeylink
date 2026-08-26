@@ -199,6 +199,7 @@ export function SalesReportClient({
       'Desc. Talla': Array.from(new Set(s.sale_items?.map((item: any) => item.variant?.product?.category?.description).filter(Boolean))).join(', ') || '—',
       'Subtotal': Number(s.subtotal),
       'Descuento': Number(s.discount_amount),
+      'Delivery': Number(s.delivery_amount || 0),
       'Total': Number(s.total),
       'Método de Pago': s.payments && s.payments.length > 0
         ? s.payments.map((p: any) => p.method === 'cash' ? 'Efectivo' : 'Tarjeta').join(' + ')
@@ -224,6 +225,9 @@ export function SalesReportClient({
       cliente: s.customer?.name || 'Cliente General',
       talla: Array.from(new Set(s.sale_items?.map((item: any) => item.variant?.product?.category?.name).filter(Boolean))).join(', ') || '—',
       tallaDescription: Array.from(new Set(s.sale_items?.map((item: any) => item.variant?.product?.category?.description).filter(Boolean))).join(', ') || '—',
+      subtotal: Number(s.subtotal),
+      descuento: Number(s.discount_amount),
+      delivery: Number(s.delivery_amount || 0),
       total: Number(s.total),
       'método de pago': s.payments && s.payments.length > 0
         ? s.payments.map((p: any) => p.method === 'cash' ? 'Efectivo' : 'Tarjeta').join(' + ')
@@ -587,6 +591,7 @@ export function SalesReportClient({
                   <TableHead className="font-mono text-xs uppercase text-center whitespace-nowrap">Desc. Talla</TableHead>
                   <TableHead className="font-mono text-xs uppercase text-right whitespace-nowrap">Subtotal</TableHead>
                   <TableHead className="font-mono text-xs uppercase text-right whitespace-nowrap">Descuento</TableHead>
+                  <TableHead className="font-mono text-xs uppercase text-right whitespace-nowrap">Delivery</TableHead>
                   <TableHead className="font-mono text-xs uppercase text-right whitespace-nowrap">Total</TableHead>
                   <TableHead className="font-mono text-xs uppercase text-center whitespace-nowrap">Método</TableHead>
                   <TableHead className="font-mono text-xs uppercase text-center whitespace-nowrap">Estado</TableHead>
@@ -595,7 +600,7 @@ export function SalesReportClient({
               <TableBody>
                 {filteredSales.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground font-mono text-xs">
+                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground font-mono text-xs">
                       No se encontraron transacciones en el período seleccionado.
                     </TableCell>
                   </TableRow>
@@ -631,6 +636,9 @@ export function SalesReportClient({
                         <TableCell className="text-right font-mono whitespace-nowrap">{formatCurrency(Number(s.subtotal))}</TableCell>
                         <TableCell className="text-right font-mono text-destructive whitespace-nowrap">
                           {Number(s.discount_amount) > 0 ? `-${formatCurrency(Number(s.discount_amount))}` : '—'}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-muted-foreground whitespace-nowrap">
+                          {Number(s.delivery_amount) > 0 ? `+${formatCurrency(Number(s.delivery_amount))}` : '—'}
                         </TableCell>
                         <TableCell className="text-right font-mono font-bold text-foreground whitespace-nowrap">{formatCurrency(Number(s.total))}</TableCell>
                         <TableCell className="text-center font-mono font-semibold text-muted-foreground whitespace-nowrap">{payLabel}</TableCell>

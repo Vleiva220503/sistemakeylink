@@ -39,6 +39,7 @@ interface Sale {
   status: string
   subtotal: number
   discount_amount: number
+  delivery_amount?: number
   total: number
   amount_paid: number
   amount_pending: number
@@ -131,6 +132,9 @@ export function SalesListClient({ initialSales, isAdmin = false }: SalesListClie
       }),
       cajero: s.cajero?.full_name || s.register?.name || 'Cajero',
       cliente: s.customer?.name || 'Cliente General',
+      subtotal: Number(s.subtotal),
+      descuento: Number(s.discount_amount),
+      delivery: Number((s as any).delivery_amount || 0),
       total: Number(s.total),
       'método de pago': s.payments && s.payments.length > 0
         ? s.payments.map((p) => p.method === 'cash' ? 'Efectivo' : 'Tarjeta').join(' + ')
@@ -151,6 +155,9 @@ export function SalesListClient({ initialSales, isAdmin = false }: SalesListClie
       cliente: s.customer?.name || 'Cliente General',
       talla: '—',
       tallaDescription: '',
+      subtotal: Number(s.subtotal),
+      descuento: Number(s.discount_amount),
+      delivery: Number((s as any).delivery_amount || 0),
       total: Number(s.total),
       'método de pago': s.payments && s.payments.length > 0
         ? s.payments.map((p) => p.method === 'cash' ? 'Efectivo' : 'Tarjeta').join(' + ')
@@ -325,6 +332,7 @@ export function SalesListClient({ initialSales, isAdmin = false }: SalesListClie
                     <TableHead className="text-center whitespace-nowrap">Ítems</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Subtotal</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Desc.</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Delivery</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Total</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Pendiente</TableHead>
                     <TableHead className="whitespace-nowrap">Estado</TableHead>
@@ -375,6 +383,11 @@ export function SalesListClient({ initialSales, isAdmin = false }: SalesListClie
                         <TableCell className="text-right text-sm text-destructive font-mono whitespace-nowrap">
                           {Number(s.discount_amount) > 0
                             ? `-${formatCurrency(Number(s.discount_amount))}`
+                            : '—'}
+                        </TableCell>
+                        <TableCell className="text-right text-sm text-muted-foreground font-mono whitespace-nowrap">
+                          {Number(s.delivery_amount) > 0
+                            ? `+${formatCurrency(Number(s.delivery_amount))}`
                             : '—'}
                         </TableCell>
                         <TableCell className="text-right font-bold font-mono whitespace-nowrap">

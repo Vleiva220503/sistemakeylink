@@ -501,41 +501,65 @@ export function SaleDetailClient({ sale, isAdmin, currentCashierName }: SaleDeta
 
       {/* Totals block */}
       <div className="flex justify-end">
-        <Card className="w-full sm:w-72">
+        <Card className="w-full sm:w-80">
           <CardContent className="pt-4 space-y-2 text-sm font-mono">
-            <div className="flex justify-between text-muted-foreground">
-              <span>Subtotal</span>
-              <span>{formatCurrency(Number(sale.subtotal))}</span>
-            </div>
-            {Number(sale.discount_amount) > 0 && (
-              <div className="flex justify-between text-destructive">
-                <span>Descuento</span>
-                <span>-{formatCurrency(Number(sale.discount_amount))}</span>
-              </div>
-            )}
-            {sale.delivery_amount && Number(sale.delivery_amount) > 0 && (
-              <div className="flex justify-between text-muted-foreground">
-                <span>Delivery</span>
-                <span>+{formatCurrency(Number(sale.delivery_amount))}</span>
-              </div>
-            )}
-            <hr className="border-border" />
-            <div className="flex justify-between font-display font-black text-lg">
-              <span>TOTAL</span>
-              <span className="text-primary">{formatCurrency(Number(sale.total))}</span>
-            </div>
-            {Number(sale.amount_pending) > 0 && (
-              <>
-                <hr className="border-border" />
-                <div className="flex justify-between text-warning font-medium text-xs">
-                  <span className="flex items-center gap-1">
-                    <AlertTriangle className="h-3 w-3" />
-                    Saldo pendiente
-                  </span>
-                  <span>{formatCurrency(Number(sale.amount_pending))}</span>
-                </div>
-              </>
-            )}
+            {(() => {
+              // Calculate sum of unit prices * quantities (gross subtotal before any discounts)
+              const itemsGrossSubtotal = sale.sale_items.reduce(
+                (sum, item) => sum + Number(item.unit_price) * item.quantity,
+                0
+              )
+              // Calculate total item line discounts
+              const itemsDiscountTotal = sale.sale_items.reduce(
+                (sum, item) => sum + Number(item.discount_amount ?? 0),
+                0
+              )
+              // Header/sale-level discount (if any extra)
+              const headerDiscount = Number(sale.discount_amount ?? 0)
+              const totalDiscount = itemsDiscountTotal > 0 ? itemsDiscountTotal : headerDiscount
+
+              return (
+                <>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Subtotal</span>
+                    <span>{formatCurrency(itemsGrossSubtotal > 0 ? itemsGrossSubtotal : Number(sale.subtotal))}</span>
+                  </div>
+
+                  {totalDiscount > 0 && (
+                    <div className="flex justify-between text-destructive font-semibold">
+                      <span>Descuento</span>
+                      <span>-{formatCurrency(totalDiscount)}</span>
+                    </div>
+                  )}
+
+                  {sale.delivery_amount && Number(sale.delivery_amount) > 0 && (
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Delivery</span>
+                      <span>+{formatCurrency(Number(sale.delivery_amount))}</span>
+                    </div>
+                  )}
+
+                  <hr className="border-border" />
+                  <div className="flex justify-between font-display font-black text-lg">
+                    <span>TOTAL</span>
+                    <span className="text-primary">{formatCurrency(Number(sale.total))}</span>
+                  </div>
+
+                  {Number(sale.amount_pending) > 0 && (
+                    <>
+                      <hr className="border-border" />
+                      <div className="flex justify-between text-warning font-medium text-xs">
+                        <span className="flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          Saldo pendiente
+                        </span>
+                        <span>{formatCurrency(Number(sale.amount_pending))}</span>
+                      </div>
+                    </>
+                  )}
+                </>
+              )
+            })()}
           </CardContent>
         </Card>
       </div>

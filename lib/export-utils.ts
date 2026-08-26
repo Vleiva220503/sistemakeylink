@@ -35,6 +35,9 @@ export interface SaleExportRow {
   cliente: string
   talla: string
   tallaDescription: string
+  subtotal?: number
+  descuento?: number
+  delivery?: number
   total: number
   'método de pago': string
   estado: string
@@ -87,7 +90,7 @@ function drawPDFHeader(doc: any, title: string) {
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7.5)
   doc.setTextColor(...BRAND.accentLight)
-  doc.text('Calzado · Ropa · Accesorios', margin + 4, 19)
+  doc.text('Calzado', margin + 4, 19)
 
   // Report title (right)
   doc.setFont('helvetica', 'bold')
@@ -309,14 +312,15 @@ export async function exportSalesPDF(
 
   autoTable(doc, {
     startY: metaY + boxH + 8,
-    head: [['N° Venta', 'Fecha', 'Cajero/Caja', 'Cliente', 'Talla', 'Desc. Talla', 'Total', 'Método de Pago', 'Estado']],
+    head: [['N° Venta', 'Fecha', 'Cajero/Caja', 'Cliente', 'Subtotal', 'Desc.', 'Delivery', 'Total', 'Método', 'Estado']],
     body: rows.map((r) => [
       r['N° venta'],
       r.fecha,
       r.cajero,
       r.cliente,
-      r.talla,
-      r.tallaDescription,
+      formatNIO(r.subtotal || 0),
+      r.descuento && r.descuento > 0 ? `-${formatNIO(r.descuento)}` : '—',
+      r.delivery && r.delivery > 0 ? `+${formatNIO(r.delivery)}` : '—',
       formatNIO(r.total),
       r['método de pago'],
       r.estado,
@@ -325,8 +329,8 @@ export async function exportSalesPDF(
     tableWidth: contentW,
     styles: {
       font: 'helvetica',
-      fontSize: 7,
-      cellPadding: { top: 2, bottom: 2, left: 2.5, right: 2.5 },
+      fontSize: 6.5,
+      cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
       textColor: BRAND.text,
       lineColor: BRAND.border,
       lineWidth: 0.2,
@@ -335,19 +339,20 @@ export async function exportSalesPDF(
       fillColor: BRAND.primary,
       textColor: BRAND.white,
       fontStyle: 'bold',
-      fontSize: 6.5,
+      fontSize: 6,
     },
     alternateRowStyles: { fillColor: BRAND.lightGray },
     columnStyles: {
-      0: { cellWidth: 15 },
-      1: { cellWidth: 20 },
+      0: { cellWidth: 16 },
+      1: { cellWidth: 18 },
       2: { cellWidth: 20 },
-      3: { cellWidth: 20 },
-      4: { cellWidth: 12, halign: 'center' },
-      5: { cellWidth: 22 },
-      6: { cellWidth: 22, halign: 'right' },
-      7: { cellWidth: 20 },
-      8: { cellWidth: 'auto', halign: 'center' },
+      3: { cellWidth: 22 },
+      4: { cellWidth: 18, halign: 'right' },
+      5: { cellWidth: 16, halign: 'right' },
+      6: { cellWidth: 16, halign: 'right' },
+      7: { cellWidth: 20, halign: 'right' },
+      8: { cellWidth: 15, halign: 'center' },
+      9: { cellWidth: 'auto', halign: 'center' },
     },
     didDrawPage: (data: any) => {
       const pageCount = (doc as any).internal.getNumberOfPages()

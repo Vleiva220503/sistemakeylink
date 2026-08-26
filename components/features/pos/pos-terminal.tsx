@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, Receipt, AlertTriangle } from 'lucide-react'
+import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, Receipt, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -82,6 +82,7 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash')
   const [deliveryAmount, setDeliveryAmount] = useState<number>(0)
   const [customerName, setCustomerName] = useState<string>('')
+  const [isOptionsOpen, setIsOptionsOpen] = useState<boolean>(false)
 
   const filteredVariants = useMemo(() => {
     if (!searchQuery.trim()) return variants
@@ -405,7 +406,7 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
 
         {/* ═══════════════ CART PANEL ═══════════════ */}
         <div
-          className={`flex flex-col border border-border bg-card overflow-hidden ${activeTab === 'cart' ? '' : 'hidden lg:flex'}`}
+          className={`flex flex-col border border-border bg-card ${activeTab === 'cart' ? '' : 'hidden lg:flex'}`}
           style={{ height: PANEL_H.mobile } as React.CSSProperties}
         >
           {/* Cart header */}
@@ -420,7 +421,11 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
           </div>
 
           {/* Scrollable cart items list */}
-          <div className="flex-1 overflow-y-auto">
+          <div
+            tabIndex={0}
+            className="flex-1 overflow-y-auto min-h-0 focus:outline-none focus:ring-1 focus:ring-primary/30"
+            style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+          >
             {cart.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center">
                 <ShoppingCart className="h-10 w-10 opacity-20 mb-3" />
@@ -430,72 +435,105 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
             ) : (
               <div className="divide-y divide-border">
                 {cart.map(item => {
-                  const effectiveUnitPrice = item.price - (item.discount_amount / item.quantity)
+                  const lineSubtotal = item.price * item.quantity - item.discount_amount
+                  const effectiveUnitPrice = item.quantity > 0 ? (item.price * item.quantity - item.discount_amount) / item.quantity : 0
                   const isLoss = effectiveUnitPrice < item.cost
                   return (
-                    <div key={item.variant_id} className="p-4 flex flex-col gap-3">
+                    <div key={item.variant_id} className="p-3.5 flex flex-col gap-2.5 bg-background/30">
 
-                      {/* Row 1 — Name + SKU + Delete */}
-                      <div className="flex items-start gap-2">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-display font-bold text-sm uppercase text-foreground leading-snug break-words">{item.name}</p>
-                          <p className="text-[10px] font-mono text-muted-foreground mt-0.5">{item.sku}</p>
+                      {/* Line 1 (Mobile & Desktop): Product Name + Talla Badge + SKU + Remove Button */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-display font-bold text-sm uppercase text-foreground leading-snug break-words">
+                              {item.name}
+                            </span>
+                            {item.talla && (
+                              <span
+                                className="text-[10px] font-mono font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded cursor-help shrink-0"
+                                title={item.tallaDescription || undefined}
+                              >
+                                T: {item.talla}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
+                            SKU: {item.sku}
+                          </p>
                         </div>
                         <button
                           type="button"
                           onClick={() => removeFromCart(item.variant_id)}
-                          className="h-9 w-9 flex items-center justify-center text-destructive hover:bg-destructive/10 rounded-none shrink-0 cursor-pointer transition-colors mt-[-2px]"
+                          className="h-8 w-8 flex items-center justify-center text-destructive hover:bg-destructive/10 rounded-none shrink-0 cursor-pointer transition-colors -mr-1 -mt-1"
                           aria-label="Eliminar del carrito"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
 
-                      {/* Row 2 — Unit price + Quantity stepper */}
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <span className="font-display font-black text-lg text-primary">{formatCurrency(item.price)}</span>
-                          <span className="text-xs text-muted-foreground font-normal ml-1">c/u</span>
-                        </div>
+                      {/* Line 2 (Mobile & Desktop): Qty Stepper, Unit Price, Line Discount indicator & Line Subtotal */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-border/40">
+                        {/* Quantity Stepper */}
                         <div className="flex items-center border border-border bg-background">
                           <button
                             type="button"
                             onClick={() => updateQuantity(item.variant_id, -1)}
-                            className="h-10 w-10 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer transition-colors border-r border-border"
+                            className="h-9 w-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer transition-colors border-r border-border"
                             aria-label="Reducir cantidad"
                           >
-                            <Minus className="h-4 w-4" />
+                            <Minus className="h-3.5 w-3.5" />
                           </button>
-                          <span className="w-10 text-center font-mono text-base font-bold select-none">
+                          <span className="w-8 text-center font-mono text-sm font-bold select-none">
                             {item.quantity}
                           </span>
                           <button
                             type="button"
                             onClick={() => updateQuantity(item.variant_id, 1)}
-                            className="h-10 w-10 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer transition-colors border-l border-border"
+                            className="h-9 w-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer transition-colors border-l border-border"
                             aria-label="Aumentar cantidad"
                           >
-                            <Plus className="h-4 w-4" />
+                            <Plus className="h-3.5 w-3.5" />
                           </button>
+                        </div>
+
+                        {/* Price & Subtotal */}
+                        <div className="text-right flex flex-col justify-center">
+                          <div className="flex items-center gap-1.5 justify-end">
+                            <span className="text-[11px] font-mono text-muted-foreground">
+                              {formatCurrency(item.price)} c/u
+                            </span>
+                            {item.discount_amount > 0 && (
+                              <span className="text-[10px] font-mono text-destructive font-semibold">
+                                (-{formatCurrency(item.discount_amount)})
+                              </span>
+                            )}
+                          </div>
+                          <div className="font-mono text-sm font-bold text-foreground">
+                            Subtotal: <span className="text-primary font-black">{formatCurrency(lineSubtotal)}</span>
+                          </div>
                         </div>
                       </div>
 
-                      {/* Row 3 — Line subtotal */}
-                      <div className="flex justify-between items-center text-xs font-mono bg-secondary/10 px-3 py-2 border border-border/40">
-                        <span className="text-muted-foreground">Subtotal línea:</span>
-                        <span className="font-bold text-foreground">{formatCurrency(item.price * item.quantity - item.discount_amount)}</span>
-                      </div>
+                      {/* Line 3: Expandable/Compact Discount controls */}
+                      <div className="border border-border/60 bg-secondary/5 p-2.5 flex flex-col gap-2 mt-0.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] font-mono font-bold text-muted-foreground uppercase tracking-wider">
+                            Descuento por línea
+                          </span>
+                          {item.discount_amount > 0 && (
+                            <span className="text-xs font-mono text-destructive font-bold">
+                              −{formatCurrency(item.discount_amount)}
+                            </span>
+                          )}
+                        </div>
 
-                      {/* Row 4 — Discount controls */}
-                      <div className="border border-border/60 bg-secondary/5 p-3 flex flex-col gap-2">
-                        <p className="text-[10px] font-mono font-bold text-muted-foreground uppercase tracking-widest">Aplicar descuento</p>
                         <div className="flex items-center gap-2">
                           {/* Type toggle */}
                           <div className="flex border border-border overflow-hidden bg-background shrink-0">
                             <button
                               type="button"
                               onClick={() => handleUpdateDiscount(item.variant_id, item.discount_val, 'percentage')}
-                              className={`h-11 w-12 text-sm font-mono font-bold transition-colors cursor-pointer ${
+                              className={`h-9 w-9 text-xs font-mono font-bold transition-colors cursor-pointer ${
                                 item.discount_type === 'percentage' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
                               }`}
                             >
@@ -504,7 +542,7 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
                             <button
                               type="button"
                               onClick={() => handleUpdateDiscount(item.variant_id, item.discount_val, 'fixed')}
-                              className={`h-11 w-12 text-sm font-mono font-bold transition-colors border-l border-border cursor-pointer ${
+                              className={`h-9 w-9 text-xs font-mono font-bold transition-colors border-l border-border cursor-pointer ${
                                 item.discount_type === 'fixed' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
                               }`}
                             >
@@ -516,7 +554,7 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
                             type="number"
                             min="0"
                             placeholder="0"
-                            className="h-11 flex-1 text-base px-3 rounded-none font-mono bg-background border-border text-right"
+                            className="h-9 flex-1 text-sm px-2.5 rounded-none font-mono bg-background border-border text-right"
                             value={item.discount_val || ''}
                             onChange={(e) => {
                               const val = Math.max(0, Number(e.target.value) || 0)
@@ -524,25 +562,20 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
                             }}
                           />
                         </div>
-                        {item.discount_amount > 0 && (
-                          <div className="flex justify-between text-xs font-mono border-t border-border/40 pt-2">
-                            <span className="text-muted-foreground">Descuento:</span>
-                            <span className="text-destructive font-bold">−{formatCurrency(item.discount_amount)}</span>
-                          </div>
-                        )}
+
                         {/* Loss warning */}
                         {isLoss && (
-                          <div className="p-2.5 bg-destructive/15 border border-destructive/20 text-destructive text-xs leading-snug space-y-2 mt-1">
+                          <div className="p-2 bg-destructive/15 border border-destructive/20 text-destructive text-xs leading-snug space-y-1.5 mt-1">
                             <div className="flex items-start gap-1.5">
-                              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-                              <span>Precio de venta ({formatCurrency(effectiveUnitPrice)}) está por debajo del costo ({formatCurrency(item.cost)}).</span>
+                              <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                              <span>Precio final ({formatCurrency(effectiveUnitPrice)}) &lt; Costo ({formatCurrency(item.cost)}).</span>
                             </div>
-                            <label className="flex items-center gap-2 cursor-pointer font-bold select-none text-foreground">
+                            <label className="flex items-center gap-2 cursor-pointer font-bold select-none text-foreground text-[11px]">
                               <input
                                 type="checkbox"
                                 checked={item.confirmedLoss}
                                 onChange={(e) => handleConfirmLoss(item.variant_id, e.target.checked)}
-                                className="h-4 w-4 accent-primary cursor-pointer"
+                                className="h-3.5 w-3.5 accent-primary cursor-pointer"
                               />
                               <span>Confirmar venta con pérdida</span>
                             </label>
@@ -557,40 +590,70 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
             )}
           </div>
 
-          {/* Footer — Totals + Payment + Checkout */}
-          <div className="border-t border-border bg-background/50 p-4 flex flex-col gap-3 shrink-0">
-            {/* Customer name input */}
-            <div className="space-y-1">
-              <label className="text-[10px] font-mono font-bold uppercase tracking-widest text-muted-foreground">
-                Nombre del Cliente (opcional)
-              </label>
-              <Input
-                type="text"
-                placeholder="Cliente Estándar"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                className="h-9 text-sm bg-background border-border font-sans"
-              />
-            </div>
+          {/* Footer — Totals + Collapsible Options + Payment + Checkout */}
+          <div className="border-t border-border bg-background/50 p-3.5 flex flex-col gap-2.5 shrink-0">
+            {/* Collapsible Accordion for Optional Fields (Customer & Delivery) */}
+            <div className="border border-border/80 bg-background rounded-none overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setIsOptionsOpen(prev => !prev)}
+                className="w-full px-3 py-2 flex items-center justify-between bg-muted/30 hover:bg-muted/60 transition-colors text-xs font-mono font-bold text-foreground cursor-pointer select-none"
+              >
+                <span className="flex items-center gap-1.5 truncate mr-2">
+                  <span>OPCIONES ADICIONALES</span>
+                  {(customerName.trim() || deliveryAmount > 0) && (
+                    <span className="text-[10px] font-normal text-primary bg-primary/10 px-1.5 py-0.5 rounded truncate">
+                      {[
+                        customerName.trim() ? `Cliente: ${customerName.trim()}` : null,
+                        deliveryAmount > 0 ? `Delivery: C$${deliveryAmount}` : null
+                      ].filter(Boolean).join(' · ')}
+                    </span>
+                  )}
+                </span>
+                {isOptionsOpen ? (
+                  <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                )}
+              </button>
 
-            {/* Delivery */}
-            <div className="flex items-center gap-3">
-              <label className="text-[10px] font-mono font-bold uppercase tracking-widest text-muted-foreground shrink-0">
-                Delivery (C$)
-              </label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-                value={deliveryAmount || ''}
-                onChange={(e) => setDeliveryAmount(Math.max(0, Number(e.target.value) || 0))}
-                className="h-9 text-sm text-right bg-background border-border font-mono flex-1"
-              />
+              {isOptionsOpen && (
+                <div className="p-3 border-t border-border/60 flex flex-col gap-2.5 bg-background">
+                  {/* Customer name input */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono font-bold uppercase tracking-widest text-muted-foreground">
+                      Nombre del Cliente (opcional)
+                    </label>
+                    <Input
+                      type="text"
+                      placeholder="Cliente Estándar"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      className="h-8 text-xs bg-background border-border font-sans"
+                    />
+                  </div>
+
+                  {/* Delivery input */}
+                  <div className="flex items-center gap-2">
+                    <label className="text-[10px] font-mono font-bold uppercase tracking-widest text-muted-foreground shrink-0">
+                      Delivery (C$)
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={deliveryAmount || ''}
+                      onChange={(e) => setDeliveryAmount(Math.max(0, Number(e.target.value) || 0))}
+                      className="h-8 text-xs text-right bg-background border-border font-mono flex-1"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Totals */}
-            <div className="space-y-1 font-mono text-sm">
+            <div className="space-y-1 font-mono text-xs">
               <div className="flex justify-between text-muted-foreground">
                 <span>SUBTOTAL</span>
                 <span>{formatCurrency(subtotal)}</span>
@@ -607,7 +670,7 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
                   <span>+{formatCurrency(deliveryAmount)}</span>
                 </div>
               )}
-              <div className="flex justify-between font-display font-black text-2xl pt-2 border-t border-border">
+              <div className="flex justify-between font-display font-black text-xl pt-1.5 border-t border-border">
                 <span>TOTAL</span>
                 <span className="text-primary">{formatCurrency(total)}</span>
               </div>
@@ -618,26 +681,26 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
               <Button
                 type="button"
                 variant={paymentMethod === 'cash' ? 'default' : 'outline'}
-                className="w-full h-11 text-xs font-display font-bold uppercase cursor-pointer"
+                className="w-full h-10 text-xs font-display font-bold uppercase cursor-pointer"
                 onClick={() => setPaymentMethod('cash')}
                 style={paymentMethod === 'cash' ? { color: 'hsl(var(--primary-foreground))' } : {}}
               >
-                <Banknote className="mr-1.5 h-4 w-4" /> EFECTIVO
+                <Banknote className="mr-1.5 h-3.5 w-3.5" /> EFECTIVO
               </Button>
               <Button
                 type="button"
                 variant={paymentMethod === 'card' ? 'default' : 'outline'}
-                className="w-full h-11 text-xs font-display font-bold uppercase cursor-pointer"
+                className="w-full h-10 text-xs font-display font-bold uppercase cursor-pointer"
                 onClick={() => setPaymentMethod('card')}
                 style={paymentMethod === 'card' ? { color: 'hsl(var(--primary-foreground))' } : {}}
               >
-                <CreditCard className="mr-1.5 h-4 w-4" /> TARJETA
+                <CreditCard className="mr-1.5 h-3.5 w-3.5" /> TARJETA
               </Button>
             </div>
 
             {/* Checkout */}
             <Button
-              className="w-full h-12 text-base font-display font-black uppercase tracking-widest shadow-lg shadow-primary/20 cursor-pointer"
+              className="w-full h-11 text-sm font-display font-black uppercase tracking-widest shadow-lg shadow-primary/20 cursor-pointer"
               disabled={cart.length === 0 || isProcessing || hasUnconfirmedLoss}
               onClick={handleCheckout}
               style={{ color: 'hsl(var(--primary-foreground))' }}

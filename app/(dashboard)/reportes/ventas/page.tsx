@@ -23,7 +23,7 @@ export default async function ReporteVentasPage({ searchParams }: Props) {
   const { data: salesRows, error: salesErr } = await supabase
     .from('sales')
     .select(`
-      id, sale_number, status, subtotal, discount_amount, total, amount_paid, amount_pending,
+      id, sale_number, status, subtotal, discount_amount, delivery_amount, total, amount_paid, amount_pending,
       notes, created_at, completed_at, created_by,
       customer:customers(name),
       register:cash_registers(name),
