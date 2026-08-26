@@ -11,25 +11,65 @@ export default async function ReporteRentabilidadPage() {
   const today = new Date().toISOString().split('T')[0]
   const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
 
-  const { data: profitability, error } = await (supabase as any).rpc('get_profitability', {
-    p_start_date: firstDayOfMonth,
-    p_end_date: today
-  } as any)
+  // Load all completed sales with sale_items in date range
+  const { data: salesRows } = await (supabase as any)
+    .from('sales')
+    .select(`
+      id,
+      subtotal,
+      discount_amount,
+      delivery_amount,
+      total,
+      sale_items(quantity, unit_price, unit_cost, discount_amount)
+    `)
+    .eq('status', 'completed')
+    .gte('created_at', `${firstDayOfMonth}T00:00:00`)
+    .lte('created_at', `${today}T23:59:59`)
 
-  if (error) {
-    console.error('Error fetching profitability RPC:', error)
-  }
+  // Load expenses in date range
+  const { data: expensesRows } = await (supabase as any)
+    .from('expenses')
+    .select('amount')
+    .gte('expense_date', firstDayOfMonth)
+    .lte('expense_date', today)
 
-  // Fallback to manual aggregation if RPC fails or returns empty
-  const grossSales = profitability?.gross_sales ?? 0
-  const discounts = profitability?.discounts ?? 0
-  const netSales = profitability?.net_sales ?? 0
-  const cogs = profitability?.cogs ?? 0
-  const grossProfit = profitability?.gross_profit ?? 0
-  const expenses = profitability?.expenses ?? 0
-  const netProfit = profitability?.net_profit ?? 0
-  const transactions = profitability?.transactions ?? 0
+  const salesList = (salesRows as any[]) || []
+  const expensesList = (expensesRows as any[]) || []
 
+  // 1. Gross Sales = Sum of (unit_price * quantity) for all items in completed sales
+  const grossSales = salesList.reduce((sum, s) => {
+    const itemsGross = s.sale_items?.reduce((itemSum: number, item: any) => {
+      return itemSum + Number(item.unit_price) * item.quantity
+    }, 0) ?? 0
+    return sum + (itemsGross > 0 ? itemsGross : Number(s.subtotal))
+  }, 0)
+
+  // 2. Discounts = Sum of item line discounts + header discount_amount
+  const discounts = salesList.reduce((sum, s) => {
+    const itemsDiscount = s.sale_items?.reduce((itemSum: number, item: any) => {
+      return itemSum + Number(item.discount_amount ?? 0)
+    }, 0) ?? 0
+    const headerDiscount = Number(s.discount_amount ?? 0)
+    const effectiveSaleDiscount = itemsDiscount > 0 ? itemsDiscount : headerDiscount
+    return sum + effectiveSaleDiscount
+  }, 0)
+
+  // 3. Net Sales = Sum of sales.total (or Gross - Discounts + Delivery)
+  const netSales = salesList.reduce((sum, s) => sum + Number(s.total), 0)
+
+  // 4. COGS = Sum of (unit_cost * quantity)
+  const cogs = salesList.reduce((sum, s) => {
+    const itemsCogs = s.sale_items?.reduce((itemSum: number, item: any) => {
+      return itemSum + Number(item.unit_cost ?? 0) * item.quantity
+    }, 0) ?? 0
+    return sum + itemsCogs
+  }, 0)
+
+  // 5. Operating Expenses
+  const expenses = expensesList.reduce((sum, e) => sum + Number(e.amount), 0)
+
+  // 6. Net Profit
+  const netProfit = netSales - cogs - expenses
   const profitMargin = netSales > 0 ? (netProfit / netSales) * 100 : 0
 
   return (

@@ -56,6 +56,7 @@ interface Sale {
     id: string
     quantity: number
     unit_price: number
+    discount_amount?: number
     total: number
   }>
   payments?: Array<{
@@ -345,6 +346,9 @@ export function SalesListClient({ initialSales, isAdmin = false }: SalesListClie
                       label: s.status,
                       variant: 'outline' as const,
                     }
+                    const itemsDiscountSum = s.sale_items?.reduce((acc, item) => acc + Number(item.discount_amount ?? 0), 0) ?? 0
+                    const effectiveDiscount = itemsDiscountSum > 0 ? itemsDiscountSum : Number(s.discount_amount ?? 0)
+
                     return (
                       <TableRow key={s.id} className={s.status === 'cancelled' ? 'opacity-60 bg-muted/20' : ''}>
                         <TableCell className={`font-mono text-xs font-semibold whitespace-nowrap ${s.status === 'cancelled' ? 'line-through' : ''}`}>
@@ -380,9 +384,9 @@ export function SalesListClient({ initialSales, isAdmin = false }: SalesListClie
                         <TableCell className="text-right text-sm font-mono whitespace-nowrap">
                           {formatCurrency(Number(s.subtotal))}
                         </TableCell>
-                        <TableCell className="text-right text-sm text-destructive font-mono whitespace-nowrap">
-                          {Number(s.discount_amount) > 0
-                            ? `-${formatCurrency(Number(s.discount_amount))}`
+                        <TableCell className="text-right text-sm text-destructive font-mono whitespace-nowrap font-semibold">
+                          {effectiveDiscount > 0
+                            ? `-${formatCurrency(effectiveDiscount)}`
                             : '—'}
                         </TableCell>
                         <TableCell className="text-right text-sm text-muted-foreground font-mono whitespace-nowrap">

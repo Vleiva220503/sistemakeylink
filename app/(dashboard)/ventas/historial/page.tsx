@@ -34,7 +34,7 @@ export default async function HistorialVentasPage({ searchParams }: PageProps) {
       notes, created_at, completed_at,
       customer:customers(name),
       register:cash_registers(name),
-      sale_items(id, quantity, unit_price, total),
+      sale_items(id, quantity, unit_price, discount_amount, total),
       payments(method, amount),
       cajero:profiles!sales_created_by_fkey(full_name)
     `)

@@ -67,11 +67,10 @@ function getVariantLabel(v: PosVariant): string {
   return parts.filter(Boolean).join(' — ')
 }
 
-// Panel heights: account for dashboard header (~64px), page title (~80px),
-// tab switcher on mobile (~50px), grid gap and page padding (~40px)
+// Panel heights: dynamically fit within available viewport height
 const PANEL_H = {
-  mobile: 'calc(100dvh - 240px)',  // mobile: header + page title + tab switcher + padding
-  desktop: 'calc(100dvh - 170px)', // desktop: header + page title + padding
+  mobile: 'calc(100dvh - 190px)',  // mobile: optimized height fit
+  desktop: 'calc(100dvh - 150px)', // desktop: optimized height fit
 }
 
 export function PosTerminal({ registerId, registerName, variants }: PosTerminalProps) {

@@ -274,13 +274,13 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<void> {
   // ── 5. FOOTER (Clean Thank You Message) ───────────────────────────────────
   finalY += 8
 
-  const shortFirstName = clientName.split(' ')[0]
-  const thankMsg = clientName !== 'Cliente Estándar'
+  const shortFirstName = clientName !== 'Cliente Estándar' ? clientName.split(' ')[0] : ''
+  const thankMsg = shortFirstName
     ? `¡Gracias por su preferencia, ${shortFirstName}!`
     : `¡Gracias por su preferencia!`
 
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(9)
+  doc.setFontSize(9.5)
   doc.setTextColor(...BRAND.navy)
   doc.text(thankMsg, pageW / 2, finalY, { align: 'center' })
 

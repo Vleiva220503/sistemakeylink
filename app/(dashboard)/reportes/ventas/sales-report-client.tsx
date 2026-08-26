@@ -609,6 +609,8 @@ export function SalesReportClient({
                     const payLabel = s.payments && s.payments.length > 0
                       ? s.payments.map((p: any) => p.method === 'cash' ? 'Efectivo' : 'Tarjeta').join(' + ')
                       : 'Efectivo'
+                    const itemsDiscountSum = s.sale_items?.reduce((acc: number, item: any) => acc + Number(item.discount_amount ?? 0), 0) ?? 0
+                    const effectiveDiscount = itemsDiscountSum > 0 ? itemsDiscountSum : Number(s.discount_amount ?? 0)
 
                     return (
                       <TableRow key={s.id} className="text-xs">
@@ -634,8 +636,8 @@ export function SalesReportClient({
                           {Array.from(new Set(s.sale_items?.map((item: any) => item.variant?.product?.category?.description).filter(Boolean))).join(', ') || '—'}
                         </TableCell>
                         <TableCell className="text-right font-mono whitespace-nowrap">{formatCurrency(Number(s.subtotal))}</TableCell>
-                        <TableCell className="text-right font-mono text-destructive whitespace-nowrap">
-                          {Number(s.discount_amount) > 0 ? `-${formatCurrency(Number(s.discount_amount))}` : '—'}
+                        <TableCell className="text-right font-mono text-destructive font-semibold whitespace-nowrap">
+                          {effectiveDiscount > 0 ? `-${formatCurrency(effectiveDiscount)}` : '—'}
                         </TableCell>
                         <TableCell className="text-right font-mono text-muted-foreground whitespace-nowrap">
                           {Number(s.delivery_amount) > 0 ? `+${formatCurrency(Number(s.delivery_amount))}` : '—'}
