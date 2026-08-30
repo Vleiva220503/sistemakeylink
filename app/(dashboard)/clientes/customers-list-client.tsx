@@ -91,71 +91,132 @@ export function CustomersListClient({ initialCustomers }: CustomersListClientPro
             </p>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Contacto</TableHead>
-                <TableHead>Dirección</TableHead>
-                <TableHead>Crédito</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            {/* ── Mobile Card View (< 768px) ── */}
+            <div className="block md:hidden space-y-3">
               {filteredCustomers.map((c) => (
-                <TableRow key={c.id}>
-                  <TableCell>
-                    <p className="font-medium">{c.name}</p>
-                    {c.notes && (
-                      <p className="text-xs text-muted-foreground truncate max-w-[200px]">
-                        {c.notes}
-                      </p>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-0.5 text-sm">
-                      {c.email && (
-                        <div className="flex items-center gap-1 text-muted-foreground">
-                          <Mail className="h-3 w-3" />
-                          {c.email}
-                        </div>
-                      )}
-                      {c.phone && (
-                        <div className="flex items-center gap-1 text-muted-foreground">
-                          <Phone className="h-3 w-3" />
-                          {c.phone}
-                        </div>
+                <div
+                  key={c.id}
+                  className={`bg-background border border-border p-3.5 space-y-2.5 text-xs shadow-sm ${!c.is_active ? 'opacity-60' : ''}`}
+                >
+                  {/* Header row */}
+                  <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2">
+                    <div className="min-w-0">
+                      <p className="font-bold text-foreground text-sm truncate">{c.name}</p>
+                      {c.notes && (
+                        <p className="text-muted-foreground text-[11px] truncate">{c.notes}</p>
                       )}
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    {c.address && (
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <MapPin className="h-3 w-3" />
-                        {c.address}
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm font-medium">
-                      {Number(c.credit_limit) > 0
-                        ? `$${Number(c.credit_limit).toFixed(2)}`
-                        : '—'}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={c.is_active ? 'default' : 'secondary'}>
+                    <Badge variant={c.is_active ? 'default' : 'secondary'} className="text-[10px] shrink-0">
                       {c.is_active ? 'Activo' : 'Inactivo'}
                     </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
+                  </div>
+
+                  {/* Contact info */}
+                  <div className="space-y-1 font-mono text-[11px] text-muted-foreground">
+                    {c.email && (
+                      <div className="flex items-center gap-1.5">
+                        <Mail className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{c.email}</span>
+                      </div>
+                    )}
+                    {c.phone && (
+                      <div className="flex items-center gap-1.5">
+                        <Phone className="h-3 w-3 shrink-0" />
+                        <span>{c.phone}</span>
+                      </div>
+                    )}
+                    {c.address && (
+                      <div className="flex items-center gap-1.5">
+                        <MapPin className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{c.address}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer row */}
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="font-mono font-bold text-[11px] text-foreground">
+                      Crédito:{' '}
+                      {Number(c.credit_limit) > 0
+                        ? `C$ ${Number(c.credit_limit).toFixed(2)}`
+                        : '—'}
+                    </span>
                     <ClientForm customer={c} />
-                  </TableCell>
-                </TableRow>
+                  </div>
+                </div>
               ))}
-            </TableBody>
-          </Table>
+            </div>
+
+            {/* ── Desktop Table View (>= 768px) ── */}
+            <div className="hidden md:block overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="whitespace-nowrap">Nombre</TableHead>
+                    <TableHead className="whitespace-nowrap">Contacto</TableHead>
+                    <TableHead className="whitespace-nowrap">Dirección</TableHead>
+                    <TableHead className="whitespace-nowrap">Crédito</TableHead>
+                    <TableHead className="whitespace-nowrap">Estado</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredCustomers.map((c) => (
+                    <TableRow key={c.id} className={!c.is_active ? 'opacity-60' : ''}>
+                      <TableCell className="whitespace-nowrap">
+                        <p className="font-medium">{c.name}</p>
+                        {c.notes && (
+                          <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                            {c.notes}
+                          </p>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-0.5 text-sm">
+                          {c.email && (
+                            <div className="flex items-center gap-1 text-muted-foreground whitespace-nowrap">
+                              <Mail className="h-3 w-3" />
+                              {c.email}
+                            </div>
+                          )}
+                          {c.phone && (
+                            <div className="flex items-center gap-1 text-muted-foreground whitespace-nowrap">
+                              <Phone className="h-3 w-3" />
+                              {c.phone}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {c.address && (
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground whitespace-nowrap">
+                            <MapPin className="h-3 w-3" />
+                            {c.address}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <span className="text-sm font-medium">
+                          {Number(c.credit_limit) > 0
+                            ? `C$ ${Number(c.credit_limit).toFixed(2)}`
+                            : '—'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <Badge variant={c.is_active ? 'default' : 'secondary'}>
+                          {c.is_active ? 'Activo' : 'Inactivo'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap">
+                        <ClientForm customer={c} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
       </CardContent>
     </Card>

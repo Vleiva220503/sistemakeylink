@@ -152,11 +152,12 @@ export function ProfileClient({ profile, isAdmin }: ProfileClientProps) {
             <p className="text-xs text-muted-foreground">Administra cajeros y administradores del sistema</p>
           </CardHeader>
           <CardContent>
-            <Link href="/usuarios">
-              <button className="h-10 px-5 text-sm font-bold uppercase tracking-wider bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Ver todos los usuarios
-              </button>
+            <Link 
+              href="/usuarios" 
+              className="flex items-center justify-center gap-2 h-10 px-5 text-sm font-bold uppercase tracking-wider bg-primary text-primary-foreground hover:bg-primary/90 transition-colors w-full sm:w-auto"
+            >
+              <Users className="h-4 w-4" />
+              Ver todos los usuarios
             </Link>
           </CardContent>
         </Card>

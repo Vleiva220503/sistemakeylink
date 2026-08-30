@@ -366,7 +366,7 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
                         </div>
                         <Button
                           type="button" size="icon" variant="outline"
-                          className="h-9 w-9 rounded-none border-primary text-primary hover:bg-primary hover:text-primary-foreground bg-transparent cursor-pointer shrink-0"
+                          className="h-10 w-10 rounded-none border-primary text-primary hover:bg-primary hover:text-primary-foreground bg-transparent cursor-pointer shrink-0"
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); addToCart(variant) }}
                         >
                           <Plus className="h-4 w-4" />
@@ -590,122 +590,132 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
           </div>
 
           {/* Footer — Totals + Collapsible Options + Payment + Checkout */}
-          <div className="border-t border-border bg-background/50 p-3.5 flex flex-col gap-2.5 shrink-0">
-            {/* Collapsible Accordion for Optional Fields (Customer & Delivery) */}
-            <div className="border border-border/80 bg-background rounded-none overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setIsOptionsOpen(prev => !prev)}
-                className="w-full px-3 py-2 flex items-center justify-between bg-muted/30 hover:bg-muted/60 transition-colors text-xs font-mono font-bold text-foreground cursor-pointer select-none"
-              >
-                <span className="flex items-center gap-1.5 truncate mr-2">
-                  <span>OPCIONES ADICIONALES</span>
-                  {(customerName.trim() || deliveryAmount > 0) && (
-                    <span className="text-[10px] font-normal text-primary bg-primary/10 px-1.5 py-0.5 rounded truncate">
-                      {[
-                        customerName.trim() ? `Cliente: ${customerName.trim()}` : null,
-                        deliveryAmount > 0 ? `Delivery: C$${deliveryAmount}` : null
-                      ].filter(Boolean).join(' · ')}
-                    </span>
+          {/* Structure: scrollable upper zone + pinned COBRAR button at bottom */}
+          <div className="border-t border-border bg-background/50 flex flex-col shrink-0">
+
+            {/* ── Scrollable zone (accordion + totals + payment) ── */}
+            <div className="overflow-y-auto p-3.5 flex flex-col gap-2.5" style={{ maxHeight: '45dvh' }}>
+
+              {/* Collapsible Accordion for Optional Fields (Customer & Delivery) */}
+              <div className="border border-border/80 bg-background rounded-none overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setIsOptionsOpen(prev => !prev)}
+                  className="w-full px-3 py-2 flex items-center justify-between bg-muted/30 hover:bg-muted/60 transition-colors text-xs font-mono font-bold text-foreground cursor-pointer select-none"
+                >
+                  <span className="flex items-center gap-1.5 truncate mr-2">
+                    <span>OPCIONES ADICIONALES</span>
+                    {(customerName.trim() || deliveryAmount > 0) && (
+                      <span className="text-[10px] font-normal text-primary bg-primary/10 px-1.5 py-0.5 rounded truncate">
+                        {[
+                          customerName.trim() ? `Cliente: ${customerName.trim()}` : null,
+                          deliveryAmount > 0 ? `Delivery: C$${deliveryAmount}` : null
+                        ].filter(Boolean).join(' · ')}
+                      </span>
+                    )}
+                  </span>
+                  {isOptionsOpen ? (
+                    <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                   )}
-                </span>
-                {isOptionsOpen ? (
-                  <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </button>
+
+                {isOptionsOpen && (
+                  <div className="p-3 border-t border-border/60 flex flex-col gap-2.5 bg-background">
+                    {/* Customer name input */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-mono font-bold uppercase tracking-widest text-muted-foreground">
+                        Nombre del Cliente (opcional)
+                      </label>
+                      <Input
+                        type="text"
+                        placeholder="Cliente Estándar"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                        className="h-8 text-xs bg-background border-border font-sans"
+                      />
+                    </div>
+
+                    {/* Delivery input */}
+                    <div className="flex items-center gap-2">
+                      <label className="text-[10px] font-mono font-bold uppercase tracking-widest text-muted-foreground shrink-0">
+                        Delivery (C$)
+                      </label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={deliveryAmount || ''}
+                        onChange={(e) => setDeliveryAmount(Math.max(0, Number(e.target.value) || 0))}
+                        className="h-8 text-xs text-right bg-background border-border font-mono flex-1"
+                      />
+                    </div>
+                  </div>
                 )}
-              </button>
-
-              {isOptionsOpen && (
-                <div className="p-3 border-t border-border/60 flex flex-col gap-2.5 bg-background">
-                  {/* Customer name input */}
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-mono font-bold uppercase tracking-widest text-muted-foreground">
-                      Nombre del Cliente (opcional)
-                    </label>
-                    <Input
-                      type="text"
-                      placeholder="Cliente Estándar"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      className="h-8 text-xs bg-background border-border font-sans"
-                    />
-                  </div>
-
-                  {/* Delivery input */}
-                  <div className="flex items-center gap-2">
-                    <label className="text-[10px] font-mono font-bold uppercase tracking-widest text-muted-foreground shrink-0">
-                      Delivery (C$)
-                    </label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={deliveryAmount || ''}
-                      onChange={(e) => setDeliveryAmount(Math.max(0, Number(e.target.value) || 0))}
-                      className="h-8 text-xs text-right bg-background border-border font-mono flex-1"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Totals */}
-            <div className="space-y-1 font-mono text-xs">
-              <div className="flex justify-between text-muted-foreground">
-                <span>SUBTOTAL</span>
-                <span>{formatCurrency(subtotal)}</span>
               </div>
-              {cart.some(i => i.discount_amount > 0) && (
-                <div className="flex justify-between text-destructive font-bold">
-                  <span>DESCUENTOS</span>
-                  <span>−{formatCurrency(cart.reduce((s, i) => s + i.discount_amount, 0))}</span>
-                </div>
-              )}
-              {deliveryAmount > 0 && (
+
+              {/* Totals */}
+              <div className="space-y-1 font-mono text-xs">
                 <div className="flex justify-between text-muted-foreground">
-                  <span>DELIVERY</span>
-                  <span>+{formatCurrency(deliveryAmount)}</span>
+                  <span>SUBTOTAL</span>
+                  <span>{formatCurrency(subtotal)}</span>
                 </div>
-              )}
-              <div className="flex justify-between font-display font-black text-xl pt-1.5 border-t border-border">
-                <span>TOTAL</span>
-                <span className="text-primary">{formatCurrency(total)}</span>
+                {cart.some(i => i.discount_amount > 0) && (
+                  <div className="flex justify-between text-destructive font-bold">
+                    <span>DESCUENTOS</span>
+                    <span>−{formatCurrency(cart.reduce((s, i) => s + i.discount_amount, 0))}</span>
+                  </div>
+                )}
+                {deliveryAmount > 0 && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>DELIVERY</span>
+                    <span>+{formatCurrency(deliveryAmount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-display font-black text-xl pt-1.5 border-t border-border">
+                  <span>TOTAL</span>
+                  <span className="text-primary">{formatCurrency(total)}</span>
+                </div>
               </div>
+
+              {/* Payment method */}
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant={paymentMethod === 'cash' ? 'default' : 'outline'}
+                  className="w-full h-10 text-xs font-display font-bold uppercase cursor-pointer"
+                  onClick={() => setPaymentMethod('cash')}
+                  style={paymentMethod === 'cash' ? { color: 'hsl(var(--primary-foreground))' } : {}}
+                >
+                  <Banknote className="mr-1.5 h-3.5 w-3.5" /> EFECTIVO
+                </Button>
+                <Button
+                  type="button"
+                  variant={paymentMethod === 'card' ? 'default' : 'outline'}
+                  className="w-full h-10 text-xs font-display font-bold uppercase cursor-pointer"
+                  onClick={() => setPaymentMethod('card')}
+                  style={paymentMethod === 'card' ? { color: 'hsl(var(--primary-foreground))' } : {}}
+                >
+                  <CreditCard className="mr-1.5 h-3.5 w-3.5" /> TARJETA
+                </Button>
+              </div>
+
+            </div>{/* end scrollable zone */}
+
+            {/* ── Pinned COBRAR — always visible at the bottom of the panel ── */}
+            <div className="px-3.5 pb-3.5 pt-2 border-t border-border/50 bg-background/80">
+              <Button
+                className="w-full h-11 text-sm font-display font-black uppercase tracking-widest shadow-lg shadow-primary/20 cursor-pointer"
+                disabled={cart.length === 0 || isProcessing || hasUnconfirmedLoss}
+                onClick={handleCheckout}
+                style={{ color: 'hsl(var(--primary-foreground))' }}
+              >
+                {isProcessing ? 'PROCESANDO...' : `COBRAR · ${formatCurrency(total)}`}
+              </Button>
             </div>
 
-            {/* Payment method */}
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                type="button"
-                variant={paymentMethod === 'cash' ? 'default' : 'outline'}
-                className="w-full h-10 text-xs font-display font-bold uppercase cursor-pointer"
-                onClick={() => setPaymentMethod('cash')}
-                style={paymentMethod === 'cash' ? { color: 'hsl(var(--primary-foreground))' } : {}}
-              >
-                <Banknote className="mr-1.5 h-3.5 w-3.5" /> EFECTIVO
-              </Button>
-              <Button
-                type="button"
-                variant={paymentMethod === 'card' ? 'default' : 'outline'}
-                className="w-full h-10 text-xs font-display font-bold uppercase cursor-pointer"
-                onClick={() => setPaymentMethod('card')}
-                style={paymentMethod === 'card' ? { color: 'hsl(var(--primary-foreground))' } : {}}
-              >
-                <CreditCard className="mr-1.5 h-3.5 w-3.5" /> TARJETA
-              </Button>
-            </div>
-
-            {/* Checkout */}
-            <Button
-              className="w-full h-11 text-sm font-display font-black uppercase tracking-widest shadow-lg shadow-primary/20 cursor-pointer"
-              disabled={cart.length === 0 || isProcessing || hasUnconfirmedLoss}
-              onClick={handleCheckout}
-              style={{ color: 'hsl(var(--primary-foreground))' }}
-            >
-              {isProcessing ? 'PROCESANDO...' : `COBRAR · ${formatCurrency(total)}`}
-            </Button>
           </div>
         </div>
 

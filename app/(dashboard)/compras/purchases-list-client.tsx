@@ -140,17 +140,17 @@ export function PurchasesListClient({ initialPurchases }: PurchasesListClientPro
           {/* Server-side Date Range Row */}
           <div className="flex flex-wrap items-center gap-3 bg-secondary/20 p-3.5 border rounded-lg text-sm">
             <span className="font-medium text-muted-foreground shrink-0">Filtrar Fecha Orden (Server):</span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto flex-1 sm:flex-none">
               <Input
                 type="date"
-                className="w-36 h-9"
+                className="w-full sm:w-36 h-9"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
               />
               <span className="text-muted-foreground">a</span>
               <Input
                 type="date"
-                className="w-36 h-9"
+                className="w-full sm:w-36 h-9"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
               />

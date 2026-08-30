@@ -44,7 +44,7 @@ export function ExpenseForm({ expense, categories }: { expense?: any; categories
           )
         }
       />
-      <DialogContent>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Editar Gasto' : 'Nuevo Gasto'}</DialogTitle>
         </DialogHeader>

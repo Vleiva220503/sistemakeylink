@@ -52,7 +52,7 @@ export function CashRegisterActions({ register }: { register: any }) {
           )
         }
       />
-      <DialogContent>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isOpen ? `Cerrar ${register.name}` : `Abrir ${register.name}`}</DialogTitle>
         </DialogHeader>

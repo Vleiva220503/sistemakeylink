@@ -28,7 +28,7 @@ export default async function DashboardPage() {
   const monthProfit = summary.month_sales - summary.month_cost - summary.month_expenses
 
   const now = new Date()
-  const formattedDate = now.toLocaleDateString('es-HN', {
+  const formattedDate = now.toLocaleDateString('es-NI', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',

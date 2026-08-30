@@ -27,8 +27,9 @@ export default async function ReporteMovimientosCajaPage({ searchParams }: Props
       cash_registers:cash_registers(name),
       usuario:profiles!cash_movements_created_by_fkey(full_name)
     `)
-    .gte('created_at', `${finalStartDate}T00:00:00`)
-    .lte('created_at', `${finalEndDate}T23:59:59`)
+    // Nicaragua es UTC-6 fijo todo el año, sin horario de verano
+    .gte('created_at', `${finalStartDate}T00:00:00-06:00`)
+    .lte('created_at', `${finalEndDate}T23:59:59-06:00`)
     .order('created_at', { ascending: false })
 
   if (movementsErr) {

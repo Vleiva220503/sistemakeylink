@@ -127,7 +127,7 @@ export function SalesListClient({ initialSales, isAdmin = false }: SalesListClie
     const { exportToExcel } = await import('@/lib/export-utils')
     const rows = filteredSales.map((s) => ({
       'N° venta': s.sale_number,
-      fecha: new Date(s.created_at).toLocaleDateString('es-HN', {
+      fecha: new Date(s.created_at).toLocaleDateString('es-NI', {
         day: '2-digit', month: '2-digit', year: 'numeric',
         hour: '2-digit', minute: '2-digit'
       }),
@@ -149,7 +149,7 @@ export function SalesListClient({ initialSales, isAdmin = false }: SalesListClie
     const { exportSalesPDF } = await import('@/lib/export-utils')
     const rows = filteredSales.map((s) => ({
       'N° venta': s.sale_number,
-      fecha: new Date(s.created_at).toLocaleDateString('es-HN', {
+      fecha: new Date(s.created_at).toLocaleDateString('es-NI', {
         day: '2-digit', month: '2-digit', year: 'numeric',
       }),
       cajero: s.cajero?.full_name || s.register?.name || 'Cajero',
@@ -232,17 +232,17 @@ export function SalesListClient({ initialSales, isAdmin = false }: SalesListClie
           {/* Date range filter server-side */}
           <div className="flex flex-wrap items-center gap-3 bg-secondary/20 p-3.5 border rounded-lg text-sm">
             <span className="font-medium text-muted-foreground shrink-0">Filtrar Fecha Venta (Server):</span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto flex-1 sm:flex-none">
               <Input
                 type="date"
-                className="w-36 h-9"
+                className="w-full sm:w-36 h-9"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
               />
               <span className="text-muted-foreground">a</span>
               <Input
                 type="date"
-                className="w-36 h-9"
+                className="w-full sm:w-36 h-9"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
               />

@@ -93,7 +93,7 @@ function CreateUserModal({ onSuccess }: { onSuccess: () => void }) {
       </Button>
 
       <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose() }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 font-display font-black uppercase">
               <UserPlus className="h-5 w-5 text-primary" />
@@ -226,7 +226,7 @@ function EditUserModal({ user, onSuccess }: { user: UserRow; onSuccess: () => vo
       </Button>
 
       <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose() }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 font-display font-black uppercase">
               <Pencil className="h-5 w-5 text-primary" />

@@ -60,26 +60,26 @@ export default async function ProductDetailPage({
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border pb-4">
-        <div className="flex items-center gap-4">
-          <Link href="/productos" className={buttonVariants({ variant: "outline", size: "icon" })}>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-4">
+        <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
+          <Link href="/productos" className={buttonVariants({ variant: "outline", size: "icon" }) + " shrink-0"}>
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <div>
-            <div className="flex items-center gap-2 font-mono text-xs text-primary font-bold uppercase tracking-widest">
-              <span>{product.brands?.name || 'SNEAKER VAULT'}</span>
-              <span>•</span>
-              <span>REF: {product.sku}</span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 font-mono text-xs text-primary font-bold uppercase tracking-widest flex-wrap">
+              <span className="truncate max-w-[150px] sm:max-w-[200px]">{product.brands?.name || 'SNEAKER VAULT'}</span>
+              <span className="shrink-0">•</span>
+              <span className="shrink-0">REF: {product.sku}</span>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-display font-black uppercase tracking-tight text-foreground">
+            <h1 className="text-3xl sm:text-4xl font-display font-black uppercase tracking-tight text-foreground break-words">
               {product.name}
             </h1>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0 self-start md:self-auto w-full sm:w-auto mt-2 md:mt-0">
           {isAdmin && (
-            <Link href={`/productos/${product.id}/editar`} className={buttonVariants({ variant: "default" })} style={{ color: 'hsl(var(--primary-foreground))' }}>
+            <Link href={`/productos/${product.id}/editar`} className={buttonVariants({ variant: "default" }) + " flex-1 sm:flex-none justify-center"} style={{ color: 'hsl(var(--primary-foreground))' }}>
               <Edit className="h-4 w-4 mr-2" />
               EDITAR
             </Link>

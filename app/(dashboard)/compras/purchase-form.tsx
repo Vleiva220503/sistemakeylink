@@ -107,7 +107,7 @@ export function PurchaseForm({ suppliers, variants }: { suppliers: any[]; varian
           </Button>
         }
       />
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nueva Orden de Compra</DialogTitle>
         </DialogHeader>

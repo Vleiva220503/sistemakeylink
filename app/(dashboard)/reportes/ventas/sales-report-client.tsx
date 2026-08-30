@@ -166,7 +166,7 @@ export function SalesReportClient({
     return Object.entries(dailyMap)
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([date, total]) => ({
-        date: new Date(date + 'T00:00:00').toLocaleDateString('es-HN', { day: 'numeric', month: 'short' }),
+        date: new Date(date + 'T00:00:00').toLocaleDateString('es-NI', { day: 'numeric', month: 'short' }),
         Ventas: total,
       }))
   }, [filteredSales, startDate, endDate])
@@ -383,7 +383,7 @@ export function SalesReportClient({
                   tickLine={false}
                   axisLine={false}
                   style={{ fontSize: 10, fontFamily: 'monospace', fill: 'hsl(var(--muted-foreground))' }}
-                  tickFormatter={(val) => `L ${val}`}
+                  tickFormatter={(val) => `C$ ${val}`}
                 />
                 <Tooltip
                   contentStyle={{

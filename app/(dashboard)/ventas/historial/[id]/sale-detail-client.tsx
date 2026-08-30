@@ -174,6 +174,18 @@ export function SaleDetailClient({ sale, isAdmin, currentCashierName }: SaleDeta
       const primaryPayment = sale.payments?.[0]?.method ?? 'cash'
       const cashierName = sale.cajero?.full_name || currentCashierName
 
+      // Compute subtotals and discounts correctly for the PDF
+      const itemsGrossSubtotal = sale.sale_items.reduce(
+        (sum, item) => sum + Number(item.unit_price) * item.quantity,
+        0
+      )
+      const itemsDiscountTotal = sale.sale_items.reduce(
+        (sum, item) => sum + Number(item.discount_amount ?? 0),
+        0
+      )
+      const headerDiscount = Number(sale.discount_amount ?? 0)
+      const totalDiscount = itemsDiscountTotal > 0 ? itemsDiscountTotal : headerDiscount
+
       const invoiceData: InvoiceData = {
         saleNumber: sale.sale_number,
         date: new Date(sale.created_at),
@@ -201,8 +213,8 @@ export function SaleDetailClient({ sale, isAdmin, currentCashierName }: SaleDeta
               : Number(item.discount_amount ?? 0)
           }
         }),
-        subtotal: Number(sale.subtotal),
-        discountTotal: Number(sale.discount_amount),
+        subtotal: itemsGrossSubtotal > 0 ? itemsGrossSubtotal : Number(sale.subtotal),
+        discountTotal: totalDiscount,
         total: Number(sale.total),
         deliveryAmount: sale.delivery_amount && Number(sale.delivery_amount) > 0 ? Number(sale.delivery_amount) : undefined,
         customerName: sale.customer_name || sale.customer?.name || null,
@@ -269,13 +281,13 @@ export function SaleDetailClient({ sale, isAdmin, currentCashierName }: SaleDeta
         </div>
 
         {/* Action buttons */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto mt-2 sm:mt-0">
           <Button
             variant="outline"
             size="sm"
             onClick={handleGeneratePDF}
             disabled={isGeneratingPDF}
-            className="flex items-center gap-2"
+            className="flex items-center justify-center gap-2 flex-1 sm:flex-none"
           >
             {isGeneratingPDF ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -286,6 +298,7 @@ export function SaleDetailClient({ sale, isAdmin, currentCashierName }: SaleDeta
           </Button>
 
           {isAdmin && sale.status !== 'cancelled' && (
+            <div className="flex-1 sm:flex-none">
             <AlertDialog>
               <AlertDialogTrigger
                 render={
@@ -331,6 +344,7 @@ export function SaleDetailClient({ sale, isAdmin, currentCashierName }: SaleDeta
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+            </div>
           )}
         </div>
       </div>

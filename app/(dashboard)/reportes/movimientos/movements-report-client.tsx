@@ -111,7 +111,7 @@ export function MovementsReportClient({
   const handleExportExcel = async () => {
     const { exportToExcel } = await import('@/lib/export-utils')
     const rows = filteredMovements.map(m => ({
-      'Fecha': new Date(m.created_at).toLocaleDateString('es-HN', {
+      'Fecha': new Date(m.created_at).toLocaleDateString('es-NI', {
         day: '2-digit', month: '2-digit', year: 'numeric',
         hour: '2-digit', minute: '2-digit'
       }),
@@ -135,7 +135,7 @@ export function MovementsReportClient({
   const handleExportPDF = async () => {
     const { exportInventoryMovementsPDF } = await import('@/lib/export-utils')
     const rows = filteredMovements.map(m => ({
-      fecha: new Date(m.created_at).toLocaleDateString('es-HN', {
+      fecha: new Date(m.created_at).toLocaleDateString('es-NI', {
         day: '2-digit', month: '2-digit', year: 'numeric',
       }),
       producto: m.product_variants?.product?.name || '—',
@@ -340,7 +340,7 @@ export function MovementsReportClient({
                       <div>
                         <p className="font-bold text-foreground">{m.product_variants?.product?.name || '—'}</p>
                         <p className="text-muted-foreground font-mono text-[11px]">
-                          SKU: {m.product_variants?.sku || '—'} · {new Date(m.created_at).toLocaleDateString('es-HN', {
+                          SKU: {m.product_variants?.sku || '—'} · {new Date(m.created_at).toLocaleDateString('es-NI', {
                             day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
                           })}
                         </p>
@@ -404,7 +404,7 @@ export function MovementsReportClient({
                     return (
                       <TableRow key={m.id} className="text-xs">
                         <TableCell className="text-muted-foreground font-mono whitespace-nowrap">
-                          {new Date(m.created_at).toLocaleDateString('es-HN', {
+                          {new Date(m.created_at).toLocaleDateString('es-NI', {
                             day: '2-digit',
                             month: 'short',
                             hour: '2-digit',

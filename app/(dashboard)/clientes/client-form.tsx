@@ -42,7 +42,7 @@ export function ClientForm({ customer }: { customer?: any }) {
           )
         }
       />
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Editar Cliente' : 'Nuevo Cliente'}</DialogTitle>
         </DialogHeader>

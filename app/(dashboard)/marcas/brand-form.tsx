@@ -43,7 +43,7 @@ export function BrandForm({ brand }: { brand?: Brand }) {
       <DialogTrigger
         render={
           isEdit ? (
-            <Button variant="ghost" size="sm" className="h-7 px-2"><Pencil className="h-3.5 w-3.5" /></Button>
+            <Button variant="ghost" size="sm" className="h-9 px-3"><Pencil className="h-4 w-4" /></Button>
           ) : (
             <Button style={{ color: 'hsl(var(--primary-foreground))' }}>
               <Plus className="mr-2 h-4 w-4" />Nueva Marca
@@ -51,7 +51,7 @@ export function BrandForm({ brand }: { brand?: Brand }) {
           )
         }
       />
-      <DialogContent>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Editar Marca' : 'Nueva Marca'}</DialogTitle>
         </DialogHeader>

@@ -42,7 +42,7 @@ export function SupplierForm({ supplier }: { supplier?: any }) {
           )
         }
       />
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Editar Proveedor' : 'Nuevo Proveedor'}</DialogTitle>
         </DialogHeader>

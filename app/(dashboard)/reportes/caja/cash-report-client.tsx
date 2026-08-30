@@ -128,7 +128,7 @@ export function CashReportClient({
   const handleExportExcel = async () => {
     const { exportToExcel } = await import('@/lib/export-utils')
     const rows = filteredMovements.map(m => ({
-      'Fecha': new Date(m.created_at).toLocaleDateString('es-HN', {
+      'Fecha': new Date(m.created_at).toLocaleDateString('es-NI', {
         day: '2-digit', month: '2-digit', year: 'numeric',
         hour: '2-digit', minute: '2-digit'
       }),
@@ -149,7 +149,7 @@ export function CashReportClient({
   const handleExportPDF = async () => {
     const { exportCashMovementsPDF } = await import('@/lib/export-utils')
     const rows = filteredMovements.map(m => ({
-      fecha: new Date(m.created_at).toLocaleDateString('es-HN', {
+      fecha: new Date(m.created_at).toLocaleDateString('es-NI', {
         day: '2-digit', month: '2-digit', year: 'numeric',
       }),
       caja: m.cash_registers?.name || '—',
@@ -366,7 +366,7 @@ export function CashReportClient({
                       <div>
                         <p className="font-semibold text-foreground">{m.cash_registers?.name || '—'}</p>
                         <p className="text-muted-foreground font-mono text-[11px]">
-                          {new Date(m.created_at).toLocaleDateString('es-HN', {
+                          {new Date(m.created_at).toLocaleDateString('es-NI', {
                             day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
                           })}
                         </p>
@@ -421,7 +421,7 @@ export function CashReportClient({
                     return (
                       <TableRow key={m.id} className="text-xs">
                         <TableCell className="text-muted-foreground font-mono whitespace-nowrap">
-                          {new Date(m.created_at).toLocaleDateString('es-HN', {
+                          {new Date(m.created_at).toLocaleDateString('es-NI', {
                             day: '2-digit',
                             month: 'short',
                             hour: '2-digit',

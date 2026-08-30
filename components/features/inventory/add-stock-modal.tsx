@@ -71,13 +71,13 @@ export function AddStockModal({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/10">
+          <Button size="sm" variant="outline" className="h-9 text-xs sm:text-sm gap-1 border-primary/30 text-primary hover:bg-primary/10">
             <Plus className="h-3 w-3" />
             Agregar Stock
           </Button>
         }
       />
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5 text-primary" />

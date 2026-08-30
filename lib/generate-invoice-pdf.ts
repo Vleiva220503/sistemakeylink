@@ -160,25 +160,31 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<void> {
     { content: 'SKU',         styles: { halign: 'center' as const } },
     { content: 'CANT.',       styles: { halign: 'center' as const } },
     { content: 'P. UNIT.',    styles: { halign: 'right'  as const } },
+    { content: 'DESCUENTO',   styles: { halign: 'right'  as const } },
     { content: 'TOTAL',       styles: { halign: 'right'  as const } },
   ]
 
   const bodyRows = data.items.map(item => {
     const lineTotal = (item.unitPrice * item.quantity) - item.discount
-    let descName = item.name
-    if (item.discount > 0) {
-      const detailStr = item.discountType === 'percentage' ? `${item.discountVal}%` : formatNIO(item.discount)
-      descName += ` (Desc. ${detailStr})`
-    }
     const tallaVal = item.talla || (item as any).size || '—'
 
+    // Build discount cell content and style
+    let discountCellContent = '—'
+    let discountCellStyle: Record<string, unknown> = { halign: 'right' as const, textColor: BRAND.textMuted }
+    if (item.discount > 0) {
+      const pctLabel = item.discountType === 'percentage' ? ` (${item.discountVal}%)` : ''
+      discountCellContent = `- ${formatNIO(item.discount)}${pctLabel}`
+      discountCellStyle = { halign: 'right' as const, textColor: [220, 38, 38] as [number,number,number], fontStyle: 'bold' as const }
+    }
+
     return [
-      { content: descName,                                  styles: { halign: 'left'   as const } },
-      { content: tallaVal,                                  styles: { halign: 'center' as const } },
-      { content: item.sku,                                  styles: { halign: 'center' as const, textColor: BRAND.textMuted } },
-      { content: String(item.quantity),                     styles: { halign: 'center' as const, fontStyle: 'bold' as const } },
-      { content: formatNIO(item.unitPrice),                 styles: { halign: 'right'  as const } },
-      { content: formatNIO(lineTotal),                      styles: { halign: 'right'  as const } },
+      { content: item.name,                                  styles: { halign: 'left'   as const } },
+      { content: tallaVal,                                   styles: { halign: 'center' as const } },
+      { content: item.sku,                                   styles: { halign: 'center' as const, textColor: BRAND.textMuted } },
+      { content: String(item.quantity),                      styles: { halign: 'center' as const, fontStyle: 'bold' as const } },
+      { content: formatNIO(item.unitPrice),                  styles: { halign: 'right'  as const } },
+      { content: discountCellContent,                        styles: discountCellStyle },
+      { content: formatNIO(lineTotal),                       styles: { halign: 'right'  as const, fontStyle: 'bold' as const } },
     ]
   })
 
@@ -200,19 +206,20 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<void> {
       fillColor: BRAND.tableHeadBg,
       textColor: BRAND.navy,
       fontStyle: 'bold',
-      fontSize: 7.5,
+      fontSize: 7,
       cellPadding: { top: 4, bottom: 4, left: 4, right: 4 },
     },
     alternateRowStyles: {
       fillColor: BRAND.white,
     },
     columnStyles: {
-      0: { cellWidth: 58 },
-      1: { cellWidth: 20 },
-      2: { cellWidth: 32 },
-      3: { cellWidth: 16 },
-      4: { cellWidth: 24 },
-      5: { cellWidth: 'auto' as const },
+      0: { cellWidth: 52 },   // DESCRIPCIÓN
+      1: { cellWidth: 16 },   // TALLA
+      2: { cellWidth: 28 },   // SKU
+      3: { cellWidth: 13 },   // CANT.
+      4: { cellWidth: 22 },   // P. UNIT.
+      5: { cellWidth: 24 },   // DESCUENTO
+      6: { cellWidth: 'auto' as const }, // TOTAL
     },
   })
 
@@ -265,14 +272,15 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<void> {
   doc.setFontSize(12)
   doc.text(formatNIO(data.total), totalsX, finalY, { align: 'right' })
 
-  // Divider Line above footer
-  finalY += 14
+  // ── 5. FOOTER anclado al pie físico de la página ─────────────────────────
+  // Se posiciona desde el fondo real del A4 (297 mm) independientemente del
+  // número de productos, para evitar espacio vacío en facturas cortas.
+  const footerY = pageH - 14  // 14 mm de margen inferior
+
+  // Línea decorativa separadora del footer
   doc.setDrawColor(226, 232, 240)
   doc.setLineWidth(0.3)
-  doc.line(margin, finalY, pageW - margin, finalY)
-
-  // ── 5. FOOTER (Clean Thank You Message) ───────────────────────────────────
-  finalY += 8
+  doc.line(margin, footerY - 8, pageW - margin, footerY - 8)
 
   const shortFirstName = clientName !== 'Cliente Estándar' ? clientName.split(' ')[0] : ''
   const thankMsg = shortFirstName
@@ -282,13 +290,12 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<void> {
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(9.5)
   doc.setTextColor(...BRAND.navy)
-  doc.text(thankMsg, pageW / 2, finalY, { align: 'center' })
+  doc.text(thankMsg, pageW / 2, footerY - 3, { align: 'center' })
 
-  finalY += 4.5
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7.5)
   doc.setTextColor(...BRAND.textMuted)
-  doc.text('No se aceptan devoluciones', pageW / 2, finalY, { align: 'center' })
+  doc.text('No se aceptan devoluciones', pageW / 2, footerY + 2, { align: 'center' })
 
   // ── 6. SAVE ───────────────────────────────────────────────────────────────
   const filename = `Factura_${String(data.saleNumber).replace(/\//g, '-')}_${

@@ -40,15 +40,17 @@ export default async function HistorialVentasPage({ searchParams }: PageProps) {
     `)
 
   if (startDate) {
-    query = query.gte('created_at', `${startDate}T00:00:00`)
+    // Nicaragua es UTC-6 fijo todo el año, sin horario de verano
+    query = query.gte('created_at', `${startDate}T00:00:00-06:00`)
   }
   if (endDate) {
-    query = query.lte('created_at', `${endDate}T23:59:59`)
+    // Nicaragua es UTC-6 fijo todo el año, sin horario de verano
+    query = query.lte('created_at', `${endDate}T23:59:59-06:00`)
   }
 
   const { data: rows, error } = await query
     .order('created_at', { ascending: false })
-    .limit(200)
+    .limit(1000)
 
   if (error) console.error('Error cargando historial:', error)
   const sales = (rows as any[]) || []

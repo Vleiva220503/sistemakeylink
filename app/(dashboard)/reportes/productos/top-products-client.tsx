@@ -258,7 +258,7 @@ export function TopProductsReportClient({
                   tickLine={false}
                   axisLine={false}
                   style={{ fontSize: 10, fontFamily: 'monospace', fill: 'hsl(var(--muted-foreground))' }}
-                  tickFormatter={(val) => `L ${val}`}
+                  tickFormatter={(val) => `C$ ${val}`}
                 />
                 <YAxis
                   dataKey="name"

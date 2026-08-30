@@ -50,7 +50,7 @@ export function CategoryForm({ category }: { category?: Category }) {
           )
         }
       />
-      <DialogContent>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Editar Talla' : 'Nueva Talla'}</DialogTitle>
         </DialogHeader>
