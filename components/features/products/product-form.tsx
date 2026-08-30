@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
@@ -14,6 +14,8 @@ import {
   AlertTriangle,
   Lock,
   Plus,
+  XCircle,
+  RefreshCw,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -36,7 +38,7 @@ import {
   FormMessage,
   FormDescription,
 } from '@/components/ui/form'
-import { checkSkuExists, createProduct, updateProduct } from '@/app/actions/products'
+import { checkSkuExists, createProduct, updateProduct, reactivateProduct } from '@/app/actions/products'
 import type { ProductWithDetails, UserRole } from '@/types/database'
 
 // ─── Zod schema ──────────────────────────────────────────────────────────────
@@ -112,6 +114,12 @@ export function ProductForm({
   const [isLoading, setIsLoading] = useState(false)
   const isEdit = !!initialProduct?.id
 
+  // ── SKU duplicate check state ─────────────────────────────────────────────────
+  const [skuStatus, setSkuStatus] = useState<'idle' | 'checking' | 'ok' | 'duplicate_inactive' | 'duplicate_active'>('idle')
+  const [duplicateId, setDuplicateId] = useState<string | null>(null)
+  const skuDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [isPending, startTransition] = useTransition()
+
   // Improvement G: only admins can see/set cost
   const isAdmin = userRole === 'admin'
 
@@ -149,23 +157,68 @@ export function ProductForm({
     Number(watchBasePrice) > 0 &&
     Number(watchCost) >= Number(watchBasePrice)
 
+  // ─── SKU Uniqueness Check ───────────────────────────────────────────────────
+  const watchSku = form.watch('sku')
+
+  useEffect(() => {
+    if (skuDebounceRef.current) clearTimeout(skuDebounceRef.current)
+
+    const trimmed = (watchSku || '').trim()
+
+    if (!trimmed || (isEdit && trimmed.toLowerCase() === (initialProduct?.sku || '').toLowerCase())) {
+      setSkuStatus('idle')
+      setDuplicateId(null)
+      return
+    }
+
+    setSkuStatus('checking')
+
+    skuDebounceRef.current = setTimeout(async () => {
+      const result = await checkSkuExists(trimmed, isEdit ? initialProduct?.id : undefined)
+      if (!result.exists) {
+        setSkuStatus('ok')
+        setDuplicateId(null)
+      } else if (result.isDiscontinued) {
+        setSkuStatus('duplicate_inactive')
+        setDuplicateId(result.id)
+      } else {
+        setSkuStatus('duplicate_active')
+        setDuplicateId(result.id)
+      }
+    }, 700)
+
+    return () => {
+      if (skuDebounceRef.current) clearTimeout(skuDebounceRef.current)
+    }
+  }, [watchSku, isEdit, initialProduct?.id, initialProduct?.sku])
+
+  function handleReactivate() {
+    if (!duplicateId) return
+    startTransition(async () => {
+      const result = await reactivateProduct(duplicateId)
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        toast.success('Producto reactivado correctamente')
+        router.push('/productos')
+        router.refresh()
+      }
+    })
+  }
+
   // ─── Submit handler ─────────────────────────────────────────────────────────
   async function onSubmit(data: ProductFormValues) {
+    if (skuStatus === 'checking') {
+      toast.warning('Espera a que se verifique el SKU.')
+      return
+    }
+    if (skuStatus === 'duplicate_active' || skuStatus === 'duplicate_inactive') {
+      toast.error('Ya existe un producto con este SKU.')
+      return
+    }
+
     setIsLoading(true)
     try {
-      // Improvement A: pre-check SKU uniqueness before hitting Supabase insert
-      const { exists } = await checkSkuExists(
-        data.sku,
-        isEdit ? initialProduct?.id : undefined
-      )
-      if (exists) {
-        form.setError('sku', {
-          message:
-            'Ya existe un producto con este SKU. Por favor usa uno diferente.',
-        })
-        setIsLoading(false)
-        return
-      }
 
       const payload = {
         product: {
@@ -368,7 +421,7 @@ export function ProductForm({
                     )}
                   />
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="sku"
@@ -381,13 +434,53 @@ export function ProductForm({
                               placeholder="Ej. AJ1-RET-01"
                               {...field}
                               value={field.value ?? ''}
-                              disabled={isLoading}
+                              disabled={isLoading || isPending}
                             />
                           </FormControl>
-                          {/* Improvement A: inform user about uniqueness */}
-                          <FormDescription className="text-[11px]">
-                            Identificador único del producto
-                          </FormDescription>
+                          
+                          {/* SKU status feedback */}
+                          {skuStatus === 'checking' && (
+                            <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-2">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              Verificando SKU...
+                            </p>
+                          )}
+
+                          {/* Duplicate INACTIVE — warning (informative) */}
+                          {skuStatus === 'duplicate_inactive' && (
+                            <div className="flex items-start gap-2 p-2.5 mt-2 rounded-md bg-warning/10 border border-warning/30 text-warning">
+                              <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs leading-snug font-semibold">Ya existe un producto descontinuado con este SKU.</p>
+                                <p className="text-xs leading-snug mt-0.5 text-warning/80">¿Quieres reactivarlo en su lugar?</p>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="mt-2 h-7 text-xs gap-1 border-warning/50 text-warning hover:bg-warning/20 hover:text-warning"
+                                  disabled={isPending}
+                                  onClick={handleReactivate}
+                                >
+                                  {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                                  Reactivar producto existente
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Duplicate ACTIVE — error (blocking) */}
+                          {skuStatus === 'duplicate_active' && (
+                            <div className="flex items-start gap-2 p-2.5 mt-2 rounded-md bg-destructive/10 border border-destructive/30 text-destructive">
+                              <XCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                              <p className="text-xs leading-snug">Ya existe un producto activo con este SKU. Usa uno diferente.</p>
+                            </div>
+                          )}
+
+                          {skuStatus !== 'duplicate_active' && skuStatus !== 'duplicate_inactive' && (
+                            <FormDescription className="text-[11px]">
+                              Identificador único del producto
+                            </FormDescription>
+                          )}
                           <FormMessage />
                         </FormItem>
                       )}
@@ -471,7 +564,7 @@ export function ProductForm({
                     )}
                   />
 
-                  <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t">
                     <FormField
                       control={form.control}
                       name="stock_quantity"

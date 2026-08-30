@@ -3,6 +3,38 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
+// ── CHECK BRAND NAME ─────────────────────────────────────────────────────────
+
+export async function checkBrandNameExists(name: string, excludeId?: string) {
+  const supabase = await createClient()
+  let query = (supabase as any)
+    .from('brands')
+    .select('id, is_active')
+    .ilike('name', name.trim())
+  if (excludeId) {
+    query = query.neq('id', excludeId)
+  }
+  const { data } = await query.maybeSingle()
+  if (!data) return { exists: false, isInactive: false, id: null }
+  return { exists: true, isInactive: !data.is_active, id: data.id as string }
+}
+
+// ── CHECK CATEGORY NAME ───────────────────────────────────────────────────────
+
+export async function checkCategoryNameExists(name: string, excludeId?: string) {
+  const supabase = await createClient()
+  let query = (supabase as any)
+    .from('categories')
+    .select('id, is_active')
+    .ilike('name', name.trim())
+  if (excludeId) {
+    query = query.neq('id', excludeId)
+  }
+  const { data } = await query.maybeSingle()
+  if (!data) return { exists: false, isInactive: false, id: null }
+  return { exists: true, isInactive: !data.is_active, id: data.id as string }
+}
+
 // ── CATEGORIES ──────────────────────────────────────────────────────────────
 
 export async function createCategory(formData: FormData) {
@@ -69,6 +101,21 @@ export async function deleteCategory(id: string) {
   const { error } = await (supabase as any)
     .from('categories')
     .update({ is_active: false })
+    .eq('id', id)
+
+  if (error) return { error: error.message }
+  revalidatePath('/categorias')
+  return { success: true }
+}
+
+export async function reactivateCategory(id: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autorizado' }
+
+  const { error } = await (supabase as any)
+    .from('categories')
+    .update({ is_active: true })
     .eq('id', id)
 
   if (error) return { error: error.message }
@@ -144,6 +191,21 @@ export async function deleteBrand(id: string) {
   const { error } = await (supabase as any)
     .from('brands')
     .update({ is_active: false })
+    .eq('id', id)
+
+  if (error) return { error: error.message }
+  revalidatePath('/marcas')
+  return { success: true }
+}
+
+export async function reactivateBrand(id: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autorizado' }
+
+  const { error } = await (supabase as any)
+    .from('brands')
+    .update({ is_active: true })
     .eq('id', id)
 
   if (error) return { error: error.message }

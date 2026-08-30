@@ -12,7 +12,7 @@ export default async function ProductosPage() {
     : { data: null }
   const isAdmin = (profile as any)?.role === 'admin'
 
-  // Fetch products with related data
+  // Fetch products with related data — including discontinued so client can show/hide them
   const { data: products, error } = await supabase
     .from('products')
     .select(`
@@ -22,8 +22,8 @@ export default async function ProductosPage() {
       product_images(*),
       product_variants(*)
     `)
-    .neq('status', 'discontinued')
     .order('created_at', { ascending: false })
+
 
   if (error) {
     console.error('Error fetching products:', error)

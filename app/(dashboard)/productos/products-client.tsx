@@ -1,15 +1,22 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useTransition } from 'react'
 import { ProductCard } from '@/components/shared/product-card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { buttonVariants } from '@/components/ui/button'
-import { Plus, Search, RotateCcw, Package } from 'lucide-react'
+import { Plus, Search, RotateCcw, Package, RefreshCw, Loader2, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 import type { ProductWithDetails } from '@/types/database'
 import { cn } from '@/lib/utils'
 import { ExportButton } from '@/components/shared/export-button'
+import { reactivateProduct } from '@/app/actions/products'
+import { toast } from 'sonner'
+import { Badge } from '@/components/ui/badge'
+import { formatCurrency } from '@/lib/utils'
+import { resolveProductImage } from '@/lib/resolve-product-image'
+import { SafeImage } from '@/components/shared/safe-image'
+import { Card, CardContent, CardFooter } from '@/components/ui/card'
 
 interface Category {
   id: string
@@ -28,20 +35,116 @@ interface ProductsClientProps {
   isAdmin: boolean
 }
 
-type StockFilter = 'all' | 'in_stock' | 'low_stock' | 'out_of_stock'
+type ViewFilter = 'all' | 'active' | 'discontinued' | 'in_stock' | 'low_stock' | 'out_of_stock'
 type SortOption = 'created_desc' | 'created_asc' | 'name_asc' | 'name_desc' | 'price_desc' | 'price_asc'
+
+// ─── Discontinued Product Card ─────────────────────────────────────────────────
+function DiscontinuedCard({ product, isAdmin }: { product: ProductWithDetails; isAdmin: boolean }) {
+  const [isPending, startTransition] = useTransition()
+  const imageUrl = resolveProductImage(product as any)
+
+  function handleReactivate() {
+    startTransition(async () => {
+      const result = await reactivateProduct(product.id)
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        toast.success('Producto reactivado correctamente')
+      }
+    })
+  }
+
+  return (
+    <Card className="sneaker-card h-full overflow-hidden border-border bg-card/90 flex flex-col justify-between rounded-none relative opacity-70">
+      {/* Discontinued banner */}
+      <div className="absolute top-0 left-0 right-0 z-20 bg-secondary/90 flex items-center justify-center gap-1 py-0.5">
+        <Badge variant="secondary" className="text-[10px]">Descontinuado</Badge>
+      </div>
+
+      {/* Image */}
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-gradient-to-b from-secondary/40 to-background flex items-center justify-center p-4 pt-7">
+        <SafeImage
+          src={imageUrl}
+          alt={product.name}
+          className="object-contain w-full h-full"
+        />
+      </div>
+
+      {/* Body */}
+      <CardContent className="p-4 flex-1 flex flex-col justify-between space-y-2">
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-mono uppercase tracking-widest font-semibold text-primary">
+              Talla: {(product as any).categories?.name || '—'}
+            </span>
+            <span className="text-[10px] opacity-70 font-mono">REF: {product.sku}</span>
+          </div>
+          <h3 className="font-display text-base font-bold tracking-tight text-foreground line-clamp-2 uppercase leading-tight">
+            {product.name}
+          </h3>
+        </div>
+
+        <div className="flex items-center justify-between pt-1 border-t border-border/60">
+          <span className="font-display font-black text-lg text-muted-foreground">
+            {formatCurrency(product.base_price)}
+          </span>
+          {isAdmin && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 h-8 text-xs"
+              disabled={isPending}
+              onClick={handleReactivate}
+            >
+              {isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" />
+              )}
+              Reactivar
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
 
 export function ProductsClient({ initialProducts, categories, brands, isAdmin }: ProductsClientProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [brandFilter, setBrandFilter] = useState('')
-  const [stockFilter, setStockFilter] = useState<StockFilter>('all')
+  const [viewFilter, setViewFilter] = useState<ViewFilter>('active')
   const [sortBy, setSortBy] = useState<SortOption>('created_desc')
 
-  const hasFilters = searchQuery || categoryFilter || brandFilter || stockFilter !== 'all'
+  const hasFilters = searchQuery || categoryFilter || brandFilter || viewFilter !== 'active'
+
+  const discontinuedCount = useMemo(
+    () => initialProducts.filter((p) => p.status === 'discontinued').length,
+    [initialProducts]
+  )
 
   const filteredProducts = useMemo(() => {
     let result = [...initialProducts]
+
+    // 0. Unified View Filter
+    if (viewFilter === 'active') {
+      result = result.filter(p => p.status !== 'discontinued')
+    } else if (viewFilter === 'discontinued') {
+      result = result.filter(p => p.status === 'discontinued')
+    } else if (['in_stock', 'low_stock', 'out_of_stock'].includes(viewFilter)) {
+      // Stock filters imply we only look at active products
+      result = result.filter(p => {
+        if (p.status === 'discontinued') return false
+        const totalStock = p.product_variants?.reduce((sum, v) => sum + v.stock_quantity, 0) ?? 0
+        const reorderPoint = p.product_variants?.[0]?.stock_reorder_point ?? 0
+        if (viewFilter === 'out_of_stock') return totalStock <= 0
+        if (viewFilter === 'low_stock') return totalStock > 0 && totalStock <= reorderPoint
+        if (viewFilter === 'in_stock') return totalStock > reorderPoint
+        return true
+      })
+    }
+    // 'all' => no filter applied
 
     // 1. Text search (name, sku, barcode)
     if (searchQuery.trim()) {
@@ -65,18 +168,6 @@ export function ProductsClient({ initialProducts, categories, brands, isAdmin }:
       result = result.filter(p => p.brand_id === brandFilter)
     }
 
-    // 4. Stock filter
-    if (stockFilter !== 'all') {
-      result = result.filter(p => {
-        const totalStock = p.product_variants?.reduce((sum, v) => sum + v.stock_quantity, 0) ?? 0
-        const reorderPoint = p.product_variants?.[0]?.stock_reorder_point ?? 0
-        if (stockFilter === 'out_of_stock') return totalStock <= 0
-        if (stockFilter === 'low_stock') return totalStock > 0 && totalStock <= reorderPoint
-        if (stockFilter === 'in_stock') return totalStock > reorderPoint
-        return true
-      })
-    }
-
     // 5. Sort
     result.sort((a, b) => {
       if (sortBy === 'name_asc') return a.name.localeCompare(b.name)
@@ -89,13 +180,13 @@ export function ProductsClient({ initialProducts, categories, brands, isAdmin }:
     })
 
     return result
-  }, [initialProducts, searchQuery, categoryFilter, brandFilter, stockFilter, sortBy])
+  }, [initialProducts, searchQuery, categoryFilter, brandFilter, viewFilter, sortBy])
 
   function handleResetFilters() {
     setSearchQuery('')
     setCategoryFilter('')
     setBrandFilter('')
-    setStockFilter('all')
+    setViewFilter('active')
     setSortBy('created_desc')
   }
 
@@ -167,10 +258,14 @@ export function ProductsClient({ initialProducts, categories, brands, isAdmin }:
       </div>
 
       {/* Filters Bar */}
-      <div className="bg-card border border-border rounded-none p-4 space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
-          {/* Search */}
-          <div className="sm:col-span-2 lg:col-span-4 space-y-1.5">
+      <div className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-4 shadow-sm">
+
+        {/* Row 1 — primary filters */}
+        {/* Mobile: 1 col | Tablet (sm): 2 col | Desktop (md+): 12 col */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-3 items-end">
+
+          {/* Buscar — full width on mobile & tablet, 4 cols on desktop */}
+          <div className="sm:col-span-2 md:col-span-4 space-y-1.5">
             <label className="text-xs font-semibold text-muted-foreground uppercase">Buscar</label>
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -183,8 +278,29 @@ export function ProductsClient({ initialProducts, categories, brands, isAdmin }:
             </div>
           </div>
 
-          {/* Category */}
-          <div className="lg:col-span-2 space-y-1.5">
+          {/* Filtro Unificado (Estado/Stock) */}
+          <div className="sm:col-span-1 md:col-span-2 space-y-1.5">
+            <label className="text-xs font-semibold text-muted-foreground uppercase">Mostrar</label>
+            <select
+              className="w-full h-10 px-3 text-sm bg-background border border-border rounded-md outline-none focus:ring-1 focus:ring-primary"
+              value={viewFilter}
+              onChange={(e) => setViewFilter(e.target.value as ViewFilter)}
+            >
+              <option value="all">Todos los productos</option>
+              <optgroup label="Por Estado">
+                <option value="active">Solo activos</option>
+                <option value="discontinued">Solo inactivos{discontinuedCount > 0 ? ` (${discontinuedCount})` : ''}</option>
+              </optgroup>
+              <optgroup label="Por Nivel de Stock (Activos)">
+                <option value="in_stock">Con stock normal</option>
+                <option value="low_stock">Stock bajo</option>
+                <option value="out_of_stock">Stock 0 (Agotados)</option>
+              </optgroup>
+            </select>
+          </div>
+
+          {/* Talla — half on tablet, 2 cols on desktop */}
+          <div className="sm:col-span-1 md:col-span-2 space-y-1.5">
             <label className="text-xs font-semibold text-muted-foreground uppercase">Talla</label>
             <select
               className="w-full h-10 px-3 text-sm bg-background border border-border rounded-md outline-none focus:ring-1 focus:ring-primary"
@@ -198,8 +314,8 @@ export function ProductsClient({ initialProducts, categories, brands, isAdmin }:
             </select>
           </div>
 
-          {/* Brand */}
-          <div className="lg:col-span-2 space-y-1.5">
+          {/* Marca — half on tablet, 2 cols on desktop */}
+          <div className="sm:col-span-1 md:col-span-2 space-y-1.5">
             <label className="text-xs font-semibold text-muted-foreground uppercase">Marca</label>
             <select
               className="w-full h-10 px-3 text-sm bg-background border border-border rounded-md outline-none focus:ring-1 focus:ring-primary"
@@ -213,23 +329,8 @@ export function ProductsClient({ initialProducts, categories, brands, isAdmin }:
             </select>
           </div>
 
-          {/* Stock Status */}
-          <div className="lg:col-span-2 space-y-1.5">
-            <label className="text-xs font-semibold text-muted-foreground uppercase">Stock</label>
-            <select
-              className="w-full h-10 px-3 text-sm bg-background border border-border rounded-md outline-none focus:ring-1 focus:ring-primary"
-              value={stockFilter}
-              onChange={(e) => setStockFilter(e.target.value as StockFilter)}
-            >
-              <option value="all">Todos</option>
-              <option value="in_stock">Con stock</option>
-              <option value="low_stock">Stock bajo</option>
-              <option value="out_of_stock">Agotados</option>
-            </select>
-          </div>
-
-          {/* Sort */}
-          <div className="lg:col-span-2 space-y-1.5">
+          {/* Ordenar — half on tablet, 2 cols on desktop */}
+          <div className="sm:col-span-1 md:col-span-2 space-y-1.5">
             <label className="text-xs font-semibold text-muted-foreground uppercase">Ordenar</label>
             <select
               className="w-full h-10 px-3 text-sm bg-background border border-border rounded-md outline-none focus:ring-1 focus:ring-primary"
@@ -246,6 +347,8 @@ export function ProductsClient({ initialProducts, categories, brands, isAdmin }:
           </div>
         </div>
 
+        {/* Row 2 no longer needed since we unified the filters into Row 1 */}
+
         {hasFilters && (
           <div className="flex justify-end pt-1">
             <Button
@@ -261,18 +364,31 @@ export function ProductsClient({ initialProducts, categories, brands, isAdmin }:
         )}
       </div>
 
+      {viewFilter === 'discontinued' && filteredProducts.length > 0 && isAdmin && (
+        <div className="flex items-start gap-2 p-3 bg-warning/10 border border-warning/30 text-warning text-sm rounded-none">
+          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+          <p className="text-xs">
+            Estás viendo productos descontinuados. Haz clic en <strong>Reactivar</strong> en cualquier card para volver a incluirlo en el catálogo activo.
+          </p>
+        </div>
+      )}
+
       {/* Products Grid */}
       {filteredProducts.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 border border-dashed border-border rounded-lg bg-card/50">
           <Package className="h-12 w-12 text-muted-foreground/30 mb-3" />
           <p className="text-muted-foreground mb-4 font-mono text-sm">
-            {hasFilters ? 'No hay productos con esos filtros' : 'No se encontraron productos'}
+            {viewFilter === 'discontinued'
+              ? 'No hay productos descontinuados'
+              : hasFilters
+              ? 'No hay productos con esos filtros'
+              : 'No se encontraron productos'}
           </p>
           {hasFilters ? (
             <Button variant="outline" size="sm" onClick={handleResetFilters}>
               Limpiar filtros
             </Button>
-          ) : isAdmin ? (
+          ) : viewFilter === 'active' && isAdmin ? (
             <Link href="/productos/nuevo" className={buttonVariants({ variant: 'outline' })}>
               Agregar primer producto
             </Link>
@@ -280,9 +396,13 @@ export function ProductsClient({ initialProducts, categories, brands, isAdmin }:
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-          {filteredProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
+          {filteredProducts.map((product) =>
+            product.status === 'discontinued' ? (
+              <DiscontinuedCard key={product.id} product={product} isAdmin={isAdmin} />
+            ) : (
+              <ProductCard key={product.id} product={product} />
+            )
+          )}
         </div>
       )}
     </div>

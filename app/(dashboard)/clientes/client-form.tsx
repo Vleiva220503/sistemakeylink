@@ -51,7 +51,7 @@ export function ClientForm({ customer }: { customer?: any }) {
             <label className="text-sm font-medium">Nombre *</label>
             <Input name="name" defaultValue={customer?.name} required />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Email</label>
               <Input name="email" type="email" defaultValue={customer?.email} />

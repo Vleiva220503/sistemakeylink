@@ -20,13 +20,18 @@ export async function checkSkuExists(sku: string, excludeId?: string) {
   const supabase = await createClient()
   let query = (supabase as any)
     .from('products')
-    .select('id')
+    .select('id, status')
     .eq('sku', sku)
   if (excludeId) {
     query = query.neq('id', excludeId)
   }
   const { data } = await query.maybeSingle()
-  return { exists: !!data }
+  if (!data) return { exists: false, isDiscontinued: false, id: null }
+  return {
+    exists: true,
+    isDiscontinued: data.status === 'discontinued',
+    id: data.id as string,
+  }
 }
 
 export async function createProduct(payload: CreateProductPayload) {
@@ -251,6 +256,24 @@ export async function deleteProductSafe(productId: string) {
     .eq('id', productId)
 
   if (error) return { error: error.message || 'Error al eliminar el producto.' }
+
+  revalidatePath('/productos')
+  revalidatePath('/inventario')
+  return { success: true }
+}
+
+export async function reactivateProduct(productId: string) {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autorizado.' }
+
+  const { error } = await supabase
+    .from('products')
+    .update({ status: 'active' } as any)
+    .eq('id', productId)
+
+  if (error) return { error: error.message || 'Error al reactivar el producto.' }
 
   revalidatePath('/productos')
   revalidatePath('/inventario')

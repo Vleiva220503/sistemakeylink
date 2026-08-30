@@ -51,7 +51,7 @@ export function SupplierForm({ supplier }: { supplier?: any }) {
             <label className="text-sm font-medium">Nombre Comercial *</label>
             <Input name="name" defaultValue={supplier?.name} required />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Contacto</label>
               <Input name="contact_name" defaultValue={supplier?.contact_name} />

@@ -1,13 +1,15 @@
 'use client'
 
-import { useState } from 'react'
-import { Tag, Search } from 'lucide-react'
+import { useState, useTransition } from 'react'
+import { Tag, Search, RefreshCw, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { CategoryForm } from './category-form'
 import { DeleteWithConfirm } from '@/components/shared/delete-confirm-dialog'
-import { deleteCategory } from '@/app/actions/crud'
+import { deleteCategory, reactivateCategory } from '@/app/actions/crud'
+import { toast } from 'sonner'
 
 interface CategoryItem {
   id: string
@@ -22,19 +24,63 @@ interface CategoriesListClientProps {
   productCountByCategory: Record<string, number>
 }
 
+// ─── Reactivate Button ─────────────────────────────────────────────────────────
+function ReactivateCategoryButton({ categoryId }: { categoryId: string }) {
+  const [isPending, startTransition] = useTransition()
+
+  function handleReactivate() {
+    startTransition(async () => {
+      const result = await reactivateCategory(categoryId)
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        toast.success('Talla reactivada correctamente')
+      }
+    })
+  }
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className="gap-1.5"
+      disabled={isPending}
+      onClick={handleReactivate}
+    >
+      {isPending ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <RefreshCw className="h-4 w-4" />
+      )}
+      Reactivar
+    </Button>
+  )
+}
+
 export function CategoriesListClient({
   categories,
   productCountByCategory,
 }: CategoriesListClientProps) {
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active')
 
   const filteredCategories = categories.filter((cat) => {
     const searchLower = search.toLowerCase()
-    return (
+    const matchesSearch =
       cat.name.toLowerCase().includes(searchLower) ||
       (cat.description || '').toLowerCase().includes(searchLower)
-    )
+
+    const matchesStatus =
+      statusFilter === 'all'
+        ? true
+        : statusFilter === 'active'
+        ? cat.is_active
+        : !cat.is_active
+
+    return matchesSearch && matchesStatus
   })
+
+  const inactiveCount = categories.filter((c) => !c.is_active).length
 
   return (
     <Card>
@@ -47,15 +93,32 @@ export function CategoriesListClient({
               {categories.filter((c) => c.is_active).length}
             </Badge>
           </CardTitle>
-          <div className="relative w-full md:w-72">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Buscar talla..."
-              className="pl-8"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+            {/* Estado filter */}
+            <select
+              className="h-10 px-3 text-sm bg-background border border-border rounded-md outline-none focus:ring-1 focus:ring-primary w-full sm:w-auto"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+              aria-label="Filtrar por estado"
+            >
+              <option value="active">Solo activas</option>
+              <option value="inactive">
+                Solo inactivas{inactiveCount > 0 ? ` (${inactiveCount})` : ''}
+              </option>
+              <option value="all">Todas</option>
+            </select>
+
+            {/* Search */}
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Buscar talla..."
+                className="pl-8 w-full"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
           </div>
         </div>
       </CardHeader>
@@ -64,7 +127,11 @@ export function CategoriesListClient({
           <div className="flex flex-col items-center justify-center h-48 text-muted-foreground gap-3">
             <Tag className="h-10 w-10 opacity-20" />
             <p>
-              {search ? 'No se encontraron tallas' : 'No hay tallas registradas'}
+              {search
+                ? 'No se encontraron tallas'
+                : statusFilter === 'inactive'
+                ? 'No hay tallas inactivas'
+                : 'No hay tallas registradas'}
             </p>
           </div>
         ) : (
@@ -99,14 +166,20 @@ export function CategoriesListClient({
                     <Badge variant={cat.is_active ? 'default' : 'secondary'}>
                       {cat.is_active ? 'Activa' : 'Inactiva'}
                     </Badge>
-                    <CategoryForm category={cat} />
 
-                    <DeleteWithConfirm
-                      itemName={cat.name}
-                      itemType="talla"
-                      productCount={count}
-                      onConfirm={() => deleteCategory(cat.id)}
-                    />
+                    {cat.is_active ? (
+                      <>
+                        <CategoryForm category={cat} />
+                        <DeleteWithConfirm
+                          itemName={cat.name}
+                          itemType="talla"
+                          productCount={count}
+                          onConfirm={() => deleteCategory(cat.id)}
+                        />
+                      </>
+                    ) : (
+                      <ReactivateCategoryButton categoryId={cat.id} />
+                    )}
                   </div>
                 </div>
               )
@@ -117,4 +190,3 @@ export function CategoriesListClient({
     </Card>
   )
 }
-
