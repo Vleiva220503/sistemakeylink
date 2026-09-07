@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, Receipt, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react'
+import { useState, useMemo, useRef, useCallback } from 'react'
+import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, Receipt, AlertTriangle, ChevronDown, ChevronUp, Truck, PackageCheck } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -49,6 +49,8 @@ type CartItem = {
   confirmedLoss: boolean
 }
 
+type DeliveryType = 'own' | 'external'
+
 interface PosTerminalProps {
   registerId: string
   registerName: string
@@ -80,8 +82,14 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
   const [isProcessing, setIsProcessing] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash')
   const [deliveryAmount, setDeliveryAmount] = useState<number>(0)
+  const [deliveryType, setDeliveryType] = useState<DeliveryType>('own')
   const [customerName, setCustomerName] = useState<string>('')
   const [isOptionsOpen, setIsOptionsOpen] = useState<boolean>(false)
+
+  // Refs for keyboard focus management
+  const accordionContentRef = useRef<HTMLDivElement>(null)
+  const customerNameRef = useRef<HTMLInputElement>(null)
+  const accordionBtnRef = useRef<HTMLButtonElement>(null)
 
   const filteredVariants = useMemo(() => {
     if (!searchQuery.trim()) return variants
@@ -192,6 +200,28 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
     setCart(prev => prev.filter(item => item.variant_id !== variantId))
   }
 
+  // Accordion toggle with keyboard focus management
+  const handleToggleOptions = useCallback(() => {
+    setIsOptionsOpen(prev => {
+      const next = !prev
+      if (next) {
+        // Move focus to first field inside accordion after it opens
+        setTimeout(() => {
+          customerNameRef.current?.focus()
+        }, 50)
+      }
+      return next
+    })
+  }, [])
+
+  // Keyboard handler for accordion button: Enter or Space toggles it
+  const handleAccordionKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      handleToggleOptions()
+    }
+  }
+
   const handleCheckout = async () => {
     if (cart.length === 0) return
     if (hasUnconfirmedLoss) {
@@ -216,7 +246,8 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
         discount_type: null,
         notes: null,
         delivery_amount: deliveryAmount,
-        customer_name: customerName.trim() || 'Cliente Estándar'
+        customer_name: customerName.trim() || 'Cliente Estándar',
+        delivery_type: deliveryAmount > 0 ? deliveryType : null,
       })
       if (result.error) {
         toast.error(`Error: ${result.error}`)
@@ -260,9 +291,15 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
     } finally {
       setIsProcessing(false)
       setDeliveryAmount(0)
+      setDeliveryType('own')
       setCustomerName('')
     }
   }
+
+  // Delivery label for the accordion summary badge
+  const deliverySummaryText = deliveryAmount > 0
+    ? `${deliveryType === 'own' ? 'E. Propio' : 'E. Tercero'}: C$${deliveryAmount}`
+    : null
 
   return (
     <div className="flex flex-col gap-3">
@@ -271,7 +308,7 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
       <div className="flex lg:hidden border border-border bg-card p-1 shrink-0">
         <button
           type="button"
-          className={`flex-1 py-3 text-center text-sm font-display font-black uppercase tracking-wider transition-colors cursor-pointer ${
+          className={`flex-1 py-3 text-center text-sm font-display font-black uppercase tracking-wider transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 ${
             activeTab === 'catalog' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
           }`}
           onClick={() => setActiveTab('catalog')}
@@ -280,7 +317,7 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
         </button>
         <button
           type="button"
-          className={`flex-1 py-3 text-center text-sm font-display font-black uppercase tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer ${
+          className={`flex-1 py-3 text-center text-sm font-display font-black uppercase tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 ${
             activeTab === 'cart' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
           }`}
           onClick={() => setActiveTab('cart')}
@@ -321,7 +358,27 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
           </div>
 
           {/* Scrollable product grid */}
-          <div className="flex-1 overflow-y-auto p-4">
+          <div
+            tabIndex={0}
+            aria-label="Catálogo de productos"
+            className="flex-1 overflow-y-auto p-4 scroll-smooth focus:outline-none focus:ring-2 focus:ring-primary focus:ring-inset"
+            onKeyDown={(e) => {
+              const container = e.currentTarget
+              if (e.key === 'ArrowDown') {
+                e.preventDefault()
+                container.scrollBy({ top: 150, behavior: 'smooth' })
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault()
+                container.scrollBy({ top: -150, behavior: 'smooth' })
+              } else if (e.key === 'PageDown') {
+                e.preventDefault()
+                container.scrollBy({ top: 400, behavior: 'smooth' })
+              } else if (e.key === 'PageUp') {
+                e.preventDefault()
+                container.scrollBy({ top: -400, behavior: 'smooth' })
+              }
+            }}
+          >
             {filteredVariants.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground font-mono text-xs text-center py-16">
                 No se encontraron variantes disponibles
@@ -336,6 +393,9 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
                     <div
                       key={variant.id}
                       className={`sneaker-card border rounded-none p-3 flex flex-col gap-2 bg-background ${inCart ? 'border-primary' : 'border-border'}`}
+                      onFocusCapture={(e) => {
+                        e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+                      }}
                     >
                       <div className="aspect-square w-full overflow-hidden bg-secondary/20 flex items-center justify-center">
                         <SafeImage src={img} alt={variant.product?.name} className="floating-sneaker-img object-contain w-full h-full" />
@@ -366,7 +426,7 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
                         </div>
                         <Button
                           type="button" size="icon" variant="outline"
-                          className="h-10 w-10 rounded-none border-primary text-primary hover:bg-primary hover:text-primary-foreground bg-transparent cursor-pointer shrink-0"
+                          className="h-10 w-10 rounded-none border-primary text-primary hover:bg-primary hover:text-primary-foreground bg-transparent cursor-pointer shrink-0 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); addToCart(variant) }}
                         >
                           <Plus className="h-4 w-4" />
@@ -390,7 +450,7 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
               <Button
                 type="button"
                 onClick={() => setActiveTab('cart')}
-                className="w-full h-12 text-sm font-display font-black uppercase tracking-wider flex items-center justify-between px-4 cursor-pointer"
+                className="w-full h-12 text-sm font-display font-black uppercase tracking-wider flex items-center justify-between px-4 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
                 style={{ color: 'hsl(var(--primary-foreground))' }}
               >
                 <div className="flex items-center gap-2">
@@ -422,8 +482,31 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
           {/* Scrollable cart items list */}
           <div
             tabIndex={0}
-            className="flex-1 overflow-y-auto min-h-0 focus:outline-none focus:ring-1 focus:ring-primary/30"
+            aria-label="Lista de artículos en el carrito"
+            className="flex-1 overflow-y-auto min-h-0 scroll-smooth focus:outline-none focus:ring-2 focus:ring-primary focus:ring-inset"
             style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+            onKeyDown={(e) => {
+              const container = e.currentTarget
+              if (e.key === 'ArrowDown') {
+                e.preventDefault()
+                container.scrollBy({ top: 120, behavior: 'smooth' })
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault()
+                container.scrollBy({ top: -120, behavior: 'smooth' })
+              } else if (e.key === 'PageDown') {
+                e.preventDefault()
+                container.scrollBy({ top: 350, behavior: 'smooth' })
+              } else if (e.key === 'PageUp') {
+                e.preventDefault()
+                container.scrollBy({ top: -350, behavior: 'smooth' })
+              } else if (e.key === 'Home') {
+                e.preventDefault()
+                container.scrollTo({ top: 0, behavior: 'smooth' })
+              } else if (e.key === 'End') {
+                e.preventDefault()
+                container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' })
+              }
+            }}
           >
             {cart.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center">
@@ -433,14 +516,23 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
               </div>
             ) : (
               <div className="divide-y divide-border">
-                {cart.map(item => {
+                {cart.map((item, itemIndex) => {
                   const lineSubtotal = item.price * item.quantity - item.discount_amount
                   const effectiveUnitPrice = item.quantity > 0 ? (item.price * item.quantity - item.discount_amount) / item.quantity : 0
                   const isLoss = effectiveUnitPrice < item.cost
+                  // tabIndex base for this item's row. Each item has 4 interactive zones:
+                  // remove(1), qty-minus(2), qty-plus(3), discount-type-pct(4), discount-type-fixed(5), discount-val(6), confirm-loss(7)
+                  const baseTab = itemIndex * 7 + 10
                   return (
-                    <div key={item.variant_id} className="p-3.5 flex flex-col gap-2.5 bg-background/30">
+                    <div
+                      key={item.variant_id}
+                      className="p-3.5 flex flex-col gap-2.5 bg-background/30 transition-colors hover:bg-muted/10"
+                      onFocusCapture={(e) => {
+                        e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+                      }}
+                    >
 
-                      {/* Line 1 (Mobile & Desktop): Product Name + Talla Badge + SKU + Remove Button */}
+                      {/* Line 1: Product Name + Talla Badge + SKU + Remove Button */}
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -462,33 +554,36 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
                         </div>
                         <button
                           type="button"
+                          tabIndex={baseTab}
                           onClick={() => removeFromCart(item.variant_id)}
-                          className="h-8 w-8 flex items-center justify-center text-destructive hover:bg-destructive/10 rounded-none shrink-0 cursor-pointer transition-colors -mr-1 -mt-1"
-                          aria-label="Eliminar del carrito"
+                          className="h-8 w-8 flex items-center justify-center text-destructive hover:bg-destructive/10 rounded-none shrink-0 cursor-pointer transition-colors -mr-1 -mt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-1"
+                          aria-label={`Eliminar ${item.name} del carrito`}
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
 
-                      {/* Line 2 (Mobile & Desktop): Qty Stepper, Unit Price, Line Discount indicator & Line Subtotal */}
+                      {/* Line 2: Qty Stepper, Unit Price, Line Subtotal */}
                       <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-border/40">
                         {/* Quantity Stepper */}
-                        <div className="flex items-center border border-border bg-background">
+                        <div className="flex items-center border border-border bg-background" role="group" aria-label={`Cantidad de ${item.name}`}>
                           <button
                             type="button"
+                            tabIndex={baseTab + 1}
                             onClick={() => updateQuantity(item.variant_id, -1)}
-                            className="h-9 w-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer transition-colors border-r border-border"
+                            className="h-9 w-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer transition-colors border-r border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
                             aria-label="Reducir cantidad"
                           >
                             <Minus className="h-3.5 w-3.5" />
                           </button>
-                          <span className="w-8 text-center font-mono text-sm font-bold select-none">
+                          <span className="w-8 text-center font-mono text-sm font-bold select-none" aria-live="polite" aria-label={`Cantidad: ${item.quantity}`}>
                             {item.quantity}
                           </span>
                           <button
                             type="button"
+                            tabIndex={baseTab + 2}
                             onClick={() => updateQuantity(item.variant_id, 1)}
-                            className="h-9 w-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer transition-colors border-l border-border"
+                            className="h-9 w-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer transition-colors border-l border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
                             aria-label="Aumentar cantidad"
                           >
                             <Plus className="h-3.5 w-3.5" />
@@ -513,7 +608,7 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
                         </div>
                       </div>
 
-                      {/* Line 3: Expandable/Compact Discount controls */}
+                      {/* Line 3: Discount controls */}
                       <div className="border border-border/60 bg-secondary/5 p-2.5 flex flex-col gap-2 mt-0.5">
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-[10px] font-mono font-bold text-muted-foreground uppercase tracking-wider">
@@ -528,11 +623,13 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
 
                         <div className="flex items-center gap-2">
                           {/* Type toggle */}
-                          <div className="flex border border-border overflow-hidden bg-background shrink-0">
+                          <div className="flex border border-border overflow-hidden bg-background shrink-0" role="group" aria-label="Tipo de descuento">
                             <button
                               type="button"
+                              tabIndex={baseTab + 3}
                               onClick={() => handleUpdateDiscount(item.variant_id, item.discount_val, 'percentage')}
-                              className={`h-9 w-9 text-xs font-mono font-bold transition-colors cursor-pointer ${
+                              aria-pressed={item.discount_type === 'percentage'}
+                              className={`h-9 w-9 text-xs font-mono font-bold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset ${
                                 item.discount_type === 'percentage' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
                               }`}
                             >
@@ -540,8 +637,10 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
                             </button>
                             <button
                               type="button"
+                              tabIndex={baseTab + 4}
                               onClick={() => handleUpdateDiscount(item.variant_id, item.discount_val, 'fixed')}
-                              className={`h-9 w-9 text-xs font-mono font-bold transition-colors border-l border-border cursor-pointer ${
+                              aria-pressed={item.discount_type === 'fixed'}
+                              className={`h-9 w-9 text-xs font-mono font-bold transition-colors border-l border-border cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset ${
                                 item.discount_type === 'fixed' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
                               }`}
                             >
@@ -553,12 +652,14 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
                             type="number"
                             min="0"
                             placeholder="0"
-                            className="h-9 flex-1 text-sm px-2.5 rounded-none font-mono bg-background border-border text-right"
+                            tabIndex={baseTab + 5}
+                            className="h-9 flex-1 text-sm px-2.5 rounded-none font-mono bg-background border-border text-right focus-visible:ring-2 focus-visible:ring-primary"
                             value={item.discount_val || ''}
                             onChange={(e) => {
                               const val = Math.max(0, Number(e.target.value) || 0)
                               handleUpdateDiscount(item.variant_id, val, item.discount_type)
                             }}
+                            aria-label={`Descuento para ${item.name}`}
                           />
                         </div>
 
@@ -572,9 +673,11 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
                             <label className="flex items-center gap-2 cursor-pointer font-bold select-none text-foreground text-[11px]">
                               <input
                                 type="checkbox"
+                                tabIndex={baseTab + 6}
                                 checked={item.confirmedLoss}
                                 onChange={(e) => handleConfirmLoss(item.variant_id, e.target.checked)}
-                                className="h-3.5 w-3.5 accent-primary cursor-pointer"
+                                className="h-3.5 w-3.5 accent-primary cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                aria-label={`Confirmar venta con pérdida para ${item.name}`}
                               />
                               <span>Confirmar venta con pérdida</span>
                             </label>
@@ -590,7 +693,6 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
           </div>
 
           {/* Footer — Totals + Collapsible Options + Payment + Checkout */}
-          {/* Structure: scrollable upper zone + pinned COBRAR button at bottom */}
           <div className="border-t border-border bg-background/50 flex flex-col shrink-0">
 
             {/* ── Scrollable zone (accordion + totals + payment) ── */}
@@ -598,10 +700,16 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
 
               {/* Collapsible Accordion for Optional Fields (Customer & Delivery) */}
               <div className="border border-border/80 bg-background rounded-none overflow-hidden">
+                {/* Accordion trigger button — fully keyboard accessible */}
                 <button
+                  ref={accordionBtnRef}
                   type="button"
-                  onClick={() => setIsOptionsOpen(prev => !prev)}
-                  className="w-full px-3 py-2 flex items-center justify-between bg-muted/30 hover:bg-muted/60 transition-colors text-xs font-mono font-bold text-foreground cursor-pointer select-none"
+                  id="options-accordion-btn"
+                  aria-expanded={isOptionsOpen}
+                  aria-controls="options-accordion-content"
+                  onClick={handleToggleOptions}
+                  onKeyDown={handleAccordionKeyDown}
+                  className="w-full px-3 py-2 flex items-center justify-between bg-muted/30 hover:bg-muted/60 transition-colors text-xs font-mono font-bold text-foreground cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
                 >
                   <span className="flex items-center gap-1.5 truncate mr-2">
                     <span>OPCIONES ADICIONALES</span>
@@ -609,47 +717,105 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
                       <span className="text-[10px] font-normal text-primary bg-primary/10 px-1.5 py-0.5 rounded truncate">
                         {[
                           customerName.trim() ? `Cliente: ${customerName.trim()}` : null,
-                          deliveryAmount > 0 ? `Delivery: C$${deliveryAmount}` : null
+                          deliverySummaryText
                         ].filter(Boolean).join(' · ')}
                       </span>
                     )}
                   </span>
                   {isOptionsOpen ? (
-                    <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                   ) : (
-                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                   )}
                 </button>
 
                 {isOptionsOpen && (
-                  <div className="p-3 border-t border-border/60 flex flex-col gap-2.5 bg-background">
+                  <div
+                    ref={accordionContentRef}
+                    id="options-accordion-content"
+                    role="region"
+                    aria-labelledby="options-accordion-btn"
+                    className="p-3 border-t border-border/60 flex flex-col gap-3 bg-background"
+                  >
                     {/* Customer name input */}
                     <div className="space-y-1">
-                      <label className="text-[10px] font-mono font-bold uppercase tracking-widest text-muted-foreground">
+                      <label
+                        htmlFor="customer-name-input"
+                        className="text-[10px] font-mono font-bold uppercase tracking-widest text-muted-foreground"
+                      >
                         Nombre del Cliente (opcional)
                       </label>
                       <Input
+                        ref={customerNameRef}
+                        id="customer-name-input"
                         type="text"
                         placeholder="Cliente Estándar"
                         value={customerName}
                         onChange={(e) => setCustomerName(e.target.value)}
-                        className="h-8 text-xs bg-background border-border font-sans"
+                        className="h-8 text-xs bg-background border-border font-sans focus-visible:ring-2 focus-visible:ring-primary"
                       />
                     </div>
 
-                    {/* Delivery input */}
-                    <div className="flex items-center gap-2">
-                      <label className="text-[10px] font-mono font-bold uppercase tracking-widest text-muted-foreground shrink-0">
-                        Delivery (C$)
-                      </label>
+                    {/* ── Delivery section ── */}
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-muted-foreground block">
+                        Envío / Delivery (C$)
+                      </span>
+
+                      {/* Delivery type toggle: Envío Propio | Envío por Tercero */}
+                      <div
+                        className="grid grid-cols-2 gap-1.5"
+                        role="group"
+                        aria-label="Tipo de envío"
+                      >
+                        <button
+                          type="button"
+                          id="delivery-type-own"
+                          aria-pressed={deliveryType === 'own'}
+                          onClick={() => setDeliveryType('own')}
+                          className={`flex items-center justify-center gap-1.5 h-9 text-[10px] font-mono font-bold uppercase tracking-wide border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 ${
+                            deliveryType === 'own'
+                              ? 'bg-primary text-primary-foreground border-primary'
+                              : 'bg-background text-muted-foreground border-border hover:bg-muted'
+                          }`}
+                        >
+                          <PackageCheck className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                          <span>Propio</span>
+                        </button>
+                        <button
+                          type="button"
+                          id="delivery-type-external"
+                          aria-pressed={deliveryType === 'external'}
+                          onClick={() => setDeliveryType('external')}
+                          className={`flex items-center justify-center gap-1.5 h-9 text-[10px] font-mono font-bold uppercase tracking-wide border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 ${
+                            deliveryType === 'external'
+                              ? 'bg-amber-500 text-white border-amber-500'
+                              : 'bg-background text-muted-foreground border-border hover:bg-muted'
+                          }`}
+                        >
+                          <Truck className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                          <span>Tercero</span>
+                        </button>
+                      </div>
+
+                      {/* Delivery type hint */}
+                      <p className="text-[10px] font-mono text-muted-foreground leading-snug">
+                        {deliveryType === 'own'
+                          ? '✓ Envío Propio — entra al balance de caja'
+                          : '⚠ Envío por Tercero — no afecta el balance de caja'}
+                      </p>
+
+                      {/* Delivery amount input */}
                       <Input
+                        id="delivery-amount-input"
                         type="number"
                         min="0"
                         step="0.01"
                         placeholder="0.00"
                         value={deliveryAmount || ''}
                         onChange={(e) => setDeliveryAmount(Math.max(0, Number(e.target.value) || 0))}
-                        className="h-8 text-xs text-right bg-background border-border font-mono flex-1"
+                        className="h-8 text-xs text-right bg-background border-border font-mono w-full focus-visible:ring-2 focus-visible:ring-primary"
+                        aria-label="Monto de envío en córdobas"
                       />
                     </div>
                   </div>
@@ -657,7 +823,7 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
               </div>
 
               {/* Totals */}
-              <div className="space-y-1 font-mono text-xs">
+              <div className="space-y-1 font-mono text-xs" aria-label="Resumen de totales">
                 <div className="flex justify-between text-muted-foreground">
                   <span>SUBTOTAL</span>
                   <span>{formatCurrency(subtotal)}</span>
@@ -669,23 +835,37 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
                   </div>
                 )}
                 {deliveryAmount > 0 && (
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>DELIVERY</span>
-                    <span>+{formatCurrency(deliveryAmount)}</span>
+                  <div className="flex justify-between items-center">
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      {deliveryType === 'own' ? (
+                        <PackageCheck className="h-3 w-3" aria-hidden="true" />
+                      ) : (
+                        <Truck className="h-3 w-3 text-amber-500" aria-hidden="true" />
+                      )}
+                      {deliveryType === 'own' ? 'ENV. PROPIO' : 'ENV. TERCERO'}
+                      {deliveryType === 'external' && (
+                        <span className="text-[9px] font-mono text-amber-600 bg-amber-500/10 px-1 py-0.5 rounded leading-none">informativo</span>
+                      )}
+                    </span>
+                    <span className={deliveryType === 'external' ? 'text-amber-600 font-bold' : 'text-foreground'}>
+                      +{formatCurrency(deliveryAmount)}
+                    </span>
                   </div>
                 )}
                 <div className="flex justify-between font-display font-black text-xl pt-1.5 border-t border-border">
                   <span>TOTAL</span>
-                  <span className="text-primary">{formatCurrency(total)}</span>
+                  <span className="text-primary" aria-live="polite">{formatCurrency(total)}</span>
                 </div>
               </div>
 
               {/* Payment method */}
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2" role="group" aria-label="Método de pago">
                 <Button
                   type="button"
+                  id="payment-cash-btn"
                   variant={paymentMethod === 'cash' ? 'default' : 'outline'}
-                  className="w-full h-10 text-xs font-display font-bold uppercase cursor-pointer"
+                  aria-pressed={paymentMethod === 'cash'}
+                  className="w-full h-10 text-xs font-display font-bold uppercase cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
                   onClick={() => setPaymentMethod('cash')}
                   style={paymentMethod === 'cash' ? { color: 'hsl(var(--primary-foreground))' } : {}}
                 >
@@ -693,8 +873,10 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
                 </Button>
                 <Button
                   type="button"
+                  id="payment-card-btn"
                   variant={paymentMethod === 'card' ? 'default' : 'outline'}
-                  className="w-full h-10 text-xs font-display font-bold uppercase cursor-pointer"
+                  aria-pressed={paymentMethod === 'card'}
+                  className="w-full h-10 text-xs font-display font-bold uppercase cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
                   onClick={() => setPaymentMethod('card')}
                   style={paymentMethod === 'card' ? { color: 'hsl(var(--primary-foreground))' } : {}}
                 >
@@ -707,10 +889,13 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
             {/* ── Pinned COBRAR — always visible at the bottom of the panel ── */}
             <div className="px-3.5 pb-3.5 pt-2 border-t border-border/50 bg-background/80">
               <Button
-                className="w-full h-11 text-sm font-display font-black uppercase tracking-widest shadow-lg shadow-primary/20 cursor-pointer"
+                id="checkout-btn"
+                type="button"
+                className="w-full h-11 text-sm font-display font-black uppercase tracking-widest shadow-lg shadow-primary/20 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 disabled={cart.length === 0 || isProcessing || hasUnconfirmedLoss}
                 onClick={handleCheckout}
                 style={{ color: 'hsl(var(--primary-foreground))' }}
+                aria-label={isProcessing ? 'Procesando venta...' : `Cobrar ${formatCurrency(total)}`}
               >
                 {isProcessing ? 'PROCESANDO...' : `COBRAR · ${formatCurrency(total)}`}
               </Button>

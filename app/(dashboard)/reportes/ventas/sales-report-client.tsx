@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
-import { DollarSign, ShoppingCart, TrendingUp, Calendar, Search, RotateCcw, User, CreditCard } from 'lucide-react'
+import { DollarSign, ShoppingCart, TrendingUp, Calendar, Search, RotateCcw, User, CreditCard, Truck, PackageCheck, Info } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { ExportButton } from '@/components/shared/export-button'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
@@ -32,6 +32,7 @@ interface SalesReportClientProps {
 
 type PaymentFilter = 'all' | 'cash' | 'card'
 type StatusFilter = 'all' | 'completed' | 'cancelled'
+type DeliveryFilter = 'all' | 'own' | 'external' | 'none'
 
 export function SalesReportClient({
   initialSales,
@@ -49,6 +50,7 @@ export function SalesReportClient({
   const [cashierFilter, setCashierFilter] = useState('')
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('all')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [deliveryFilter, setDeliveryFilter] = useState<DeliveryFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
 
   const [isMounted, setIsMounted] = useState(false)
@@ -81,6 +83,7 @@ export function SalesReportClient({
     cashierFilter ||
     paymentFilter !== 'all' ||
     statusFilter !== 'all' ||
+    deliveryFilter !== 'all' ||
     searchQuery ||
     dateStart !== startDate ||
     dateEnd !== endDate
@@ -117,26 +120,58 @@ export function SalesReportClient({
       result = result.filter(s => s.status === statusFilter)
     }
 
+    // 5. Delivery Filter
+    if (deliveryFilter !== 'all') {
+      if (deliveryFilter === 'own') {
+        result = result.filter(s => s.delivery_type === 'own' || (!s.delivery_type && Number(s.delivery_amount) > 0))
+      } else if (deliveryFilter === 'external') {
+        result = result.filter(s => s.delivery_type === 'external')
+      } else if (deliveryFilter === 'none') {
+        result = result.filter(s => !Number(s.delivery_amount) || Number(s.delivery_amount) === 0)
+      }
+    }
+
     return result
-  }, [searchQuery, cashierFilter, paymentFilter, statusFilter, initialSales])
+  }, [searchQuery, cashierFilter, paymentFilter, statusFilter, deliveryFilter, initialSales])
 
   // Dynamic KPI Aggregation
   const completedSales = filteredSales.filter(s => s.status === 'completed')
-  const totalRevenue = completedSales.reduce((sum, s) => sum + Number(s.total), 0)
-  const totalDiscount = completedSales.reduce((sum, s) => sum + Number(s.discount_amount), 0)
+
+  // Delivery breakdown: own vs external
+  const ownDeliveryTotal = completedSales.reduce((sum, s) =>
+    s.delivery_type === 'own' || (!s.delivery_type && Number(s.delivery_amount) > 0)
+      ? sum + Number(s.delivery_amount || 0)
+      : sum
+  , 0)
+  const externalDeliveryTotal = completedSales.reduce((sum, s) =>
+    s.delivery_type === 'external' ? sum + Number(s.delivery_amount || 0) : sum
+  , 0)
+
+  // Total Revenue: For external delivery, delivery amount is not cash in register, but sales total includes it.
+  // "Ingresos Reales" = total of completed sales - external delivery amounts
+  const totalRevenue = completedSales.reduce((sum, s) => {
+    const extDel = s.delivery_type === 'external' ? Number(s.delivery_amount || 0) : 0
+    return sum + (Number(s.total) - extDel)
+  }, 0)
+
   const avgTicket = completedSales.length > 0 ? totalRevenue / completedSales.length : 0
 
-  // Payment Breakdown
+  const totalDiscount = completedSales.reduce((sum, s) => {
+    const itemsDiscountSum = s.sale_items?.reduce((acc: number, item: any) => acc + Number(item.discount_amount ?? 0), 0) ?? 0
+    const effectiveSaleDiscount = itemsDiscountSum > 0 ? itemsDiscountSum : Number(s.discount_amount ?? 0)
+    return sum + effectiveSaleDiscount
+  }, 0)
+
   const cashTotal = completedSales.reduce((sum, s) => {
-    const pSum = s.payments?.filter((p: any) => p.method === 'cash').reduce((acc: number, p: any) => acc + Number(p.amount), 0) ?? 0
-    // If no payments, count total as cash
     if (!s.payments || s.payments.length === 0) return sum + Number(s.total)
-    return sum + pSum
+    const cashPayments = s.payments.filter((p: any) => p.method === 'cash')
+    return sum + cashPayments.reduce((pSum: number, p: any) => pSum + Number(p.amount), 0)
   }, 0)
 
   const cardTotal = completedSales.reduce((sum, s) => {
-    const pSum = s.payments?.filter((p: any) => p.method === 'card').reduce((acc: number, p: any) => acc + Number(p.amount), 0) ?? 0
-    return sum + pSum
+    if (!s.payments || s.payments.length === 0) return sum
+    const cardPayments = s.payments.filter((p: any) => p.method === 'card')
+    return sum + cardPayments.reduce((pSum: number, p: any) => pSum + Number(p.amount), 0)
   }, 0)
 
   // Daily Sales trend for Recharts
@@ -184,7 +219,7 @@ export function SalesReportClient({
     handleDateChange(defaultStart, defaultEnd)
   }
 
-   const handleExportExcel = async () => {
+  const handleExportExcel = async () => {
     const { exportToExcel } = await import('@/lib/export-utils')
     const rows = filteredSales.map(s => ({
       'N° Venta': s.sale_number,
@@ -199,9 +234,11 @@ export function SalesReportClient({
       'Desc. Talla': Array.from(new Set(s.sale_items?.map((item: any) => item.variant?.product?.category?.description).filter(Boolean))).join(', ') || '—',
       'Subtotal': Number(s.subtotal),
       'Descuento': Number(s.discount_amount),
-      'Delivery': Number(s.delivery_amount || 0),
+      'Tipo Envío': s.delivery_type === 'own' ? 'Envío Propio' : s.delivery_type === 'external' ? 'Envío por Tercero' : (Number(s.delivery_amount) > 0 ? 'Envío Propio' : '—'),
+      'Envío Propio': s.delivery_type === 'external' ? 0 : Number(s.delivery_amount || 0),
+      'Envío por Tercero (Informativo)': s.delivery_type === 'external' ? Number(s.delivery_amount || 0) : 0,
       'Total': Number(s.total),
-      'Método de Pago': s.payments && s.payments.length > 0
+      'método de pago': s.payments && s.payments.length > 0
         ? s.payments.map((p: any) => p.method === 'cash' ? 'Efectivo' : 'Tarjeta').join(' + ')
         : 'Efectivo',
       'Estado': s.status === 'completed' ? 'Completada' : s.status === 'cancelled' ? 'Anulada' : s.status,
@@ -228,6 +265,7 @@ export function SalesReportClient({
       subtotal: Number(s.subtotal),
       descuento: Number(s.discount_amount),
       delivery: Number(s.delivery_amount || 0),
+      deliveryType: s.delivery_type || (Number(s.delivery_amount) > 0 ? 'own' : null),
       total: Number(s.total),
       'método de pago': s.payments && s.payments.length > 0
         ? s.payments.map((p: any) => p.method === 'cash' ? 'Efectivo' : 'Tarjeta').join(' + ')
@@ -269,7 +307,12 @@ export function SalesReportClient({
               </div>
               <div className="min-w-0">
                 <p className="text-base sm:text-xl font-display font-black text-foreground truncate">{formatCurrency(totalRevenue)}</p>
-                <p className="text-[10px] sm:text-xs text-muted-foreground uppercase font-mono tracking-wider truncate">Ingresos Netos</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground uppercase font-mono tracking-wider truncate">Ingresos Reales</p>
+                {externalDeliveryTotal > 0 && (
+                  <p className="text-[9px] font-mono text-amber-600 truncate">
+                    Excl. {formatCurrency(externalDeliveryTotal)} E.Tercero
+                  </p>
+                )}
               </div>
             </div>
           </CardContent>
@@ -317,6 +360,47 @@ export function SalesReportClient({
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Delivery breakdown cards ── */}
+      {(ownDeliveryTotal > 0 || externalDeliveryTotal > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Own delivery */}
+          <Card className="border-border bg-card">
+            <CardContent className="p-3.5 flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <PackageCheck className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold uppercase tracking-wider font-mono text-muted-foreground">Envío Propio</p>
+                <p className="text-lg font-display font-black text-primary">{formatCurrency(ownDeliveryTotal)}</p>
+              </div>
+              <div className="text-right text-[10px] font-mono text-primary bg-primary/10 px-2 py-1 rounded">
+                Ingreso real
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* External delivery — informative only */}
+          <Card className="border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-950/20">
+            <CardContent className="p-3.5 flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+                <Truck className="h-5 w-5 text-amber-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold uppercase tracking-wider font-mono text-amber-700 dark:text-amber-400">Envío por Tercero</p>
+                <p className="text-lg font-display font-black text-amber-600">{formatCurrency(externalDeliveryTotal)}</p>
+              </div>
+              <div className="text-right">
+                <div className="flex items-center gap-1 text-[10px] font-mono text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-1 rounded">
+                  <Info className="h-3 w-3" />
+                  <span>Informativo</span>
+                </div>
+                <p className="text-[9px] font-mono text-amber-600/70 mt-0.5">No entra a caja</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Payment methods breakdown cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -500,6 +584,21 @@ export function SalesReportClient({
             </select>
           </div>
 
+          {/* Delivery Type Selector */}
+          <div className="md:col-span-2 space-y-1.5">
+            <label className="text-xs font-bold font-mono text-muted-foreground uppercase tracking-wider">Envío</label>
+            <select
+              className="w-full h-10 px-3 text-sm bg-background border border-border rounded-md outline-none focus:ring-1 focus:ring-primary"
+              value={deliveryFilter}
+              onChange={(e) => setDeliveryFilter(e.target.value as DeliveryFilter)}
+            >
+              <option value="all">Todos los envíos</option>
+              <option value="own">Envío Propio</option>
+              <option value="external">Envío por Tercero</option>
+              <option value="none">Sin Delivery</option>
+            </select>
+          </div>
+
           {/* Reset Filters button */}
           <div className="md:col-span-1">
             {hasFilters && (
@@ -640,7 +739,20 @@ export function SalesReportClient({
                           {effectiveDiscount > 0 ? `-${formatCurrency(effectiveDiscount)}` : '—'}
                         </TableCell>
                         <TableCell className="text-right font-mono text-muted-foreground whitespace-nowrap">
-                          {Number(s.delivery_amount) > 0 ? `+${formatCurrency(Number(s.delivery_amount))}` : '—'}
+                          {Number(s.delivery_amount) > 0 ? (
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span className={s.delivery_type === 'external' ? 'text-amber-600 font-bold' : 'text-muted-foreground'}>
+                                +{formatCurrency(Number(s.delivery_amount))}
+                              </span>
+                              <span className={`text-[9px] font-mono px-1 py-0.5 rounded leading-none ${
+                                s.delivery_type === 'external'
+                                  ? 'bg-amber-500/10 text-amber-600'
+                                  : 'bg-primary/10 text-primary'
+                              }`}>
+                                {s.delivery_type === 'external' ? 'Tercero' : 'Propio'}
+                              </span>
+                            </div>
+                          ) : '—'}
                         </TableCell>
                         <TableCell className="text-right font-mono font-bold text-foreground whitespace-nowrap">{formatCurrency(Number(s.total))}</TableCell>
                         <TableCell className="text-center font-mono font-semibold text-muted-foreground whitespace-nowrap">{payLabel}</TableCell>

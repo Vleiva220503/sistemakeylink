@@ -24,6 +24,7 @@ interface CreateSalePayload {
   notes?: string | null
   delivery_amount?: number
   customer_name?: string | null
+  delivery_type?: 'own' | 'external' | null
 }
 
 export async function createSale(payload: CreateSalePayload) {
@@ -62,7 +63,8 @@ export async function createSale(payload: CreateSalePayload) {
       p_discount_type: payload.discount_type || null,
       p_notes: payload.notes || null,
       p_delivery_amount: Number(payload.delivery_amount || 0),
-      p_customer_name: payload.customer_name || 'Cliente Estándar'
+      p_customer_name: payload.customer_name || 'Cliente Estándar',
+      p_delivery_type: payload.delivery_type || null
     })
 
     if (error) {

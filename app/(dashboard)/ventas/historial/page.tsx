@@ -30,7 +30,7 @@ export default async function HistorialVentasPage({ searchParams }: PageProps) {
   let query = supabase
     .from('sales')
     .select(`
-      id, sale_number, status, subtotal, discount_amount, delivery_amount, total, amount_paid, amount_pending,
+      id, sale_number, status, subtotal, discount_amount, delivery_amount, delivery_type, total, amount_paid, amount_pending,
       notes, created_at, completed_at,
       customer:customers(name),
       register:cash_registers(name),

@@ -82,6 +82,7 @@ interface SaleDetail {
   discount_type: string | null
   total: number
   delivery_amount?: number
+  delivery_type?: 'own' | 'external' | null
   customer_name?: string | null
   amount_paid: number
   amount_pending: number
@@ -547,9 +548,26 @@ export function SaleDetailClient({ sale, isAdmin, currentCashierName }: SaleDeta
                   )}
 
                   {sale.delivery_amount && Number(sale.delivery_amount) > 0 && (
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Delivery</span>
-                      <span>+{formatCurrency(Number(sale.delivery_amount))}</span>
+                    <div className="space-y-0.5">
+                      <div className="flex justify-between text-muted-foreground">
+                        <span className="flex items-center gap-1.5">
+                          Delivery
+                          <Badge
+                            variant={sale.delivery_type === 'external' ? 'secondary' : 'default'}
+                            className={`text-[9px] py-0 px-1 font-mono font-bold uppercase ${
+                              sale.delivery_type === 'external' ? 'bg-amber-500/10 text-amber-600' : ''
+                            }`}
+                          >
+                            {sale.delivery_type === 'external' ? 'Tercero' : 'Propio'}
+                          </Badge>
+                        </span>
+                        <span>+{formatCurrency(Number(sale.delivery_amount))}</span>
+                      </div>
+                      {sale.delivery_type === 'external' && (
+                        <p className="text-[10px] text-amber-600 font-sans text-right">
+                          * Informativo (No entra a caja)
+                        </p>
+                      )}
                     </div>
                   )}
 

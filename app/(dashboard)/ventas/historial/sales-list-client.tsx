@@ -40,6 +40,7 @@ interface Sale {
   subtotal: number
   discount_amount: number
   delivery_amount?: number
+  delivery_type?: 'own' | 'external' | null
   total: number
   amount_paid: number
   amount_pending: number
@@ -80,6 +81,7 @@ export function SalesListClient({ initialSales, isAdmin = false }: SalesListClie
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [deliveryFilter, setDeliveryFilter] = useState<string>('all')
 
   // Date Range inputs initialized from URL params
   const [startDate, setStartDate] = useState(searchParams.get('startDate') || '')
@@ -120,7 +122,17 @@ export function SalesListClient({ initialSales, isAdmin = false }: SalesListClie
     // 2. Status Filter
     const matchesStatus = statusFilter === 'all' || s.status === statusFilter
 
-    return matchesSearch && matchesStatus
+    // 3. Delivery Filter
+    let matchesDelivery = true
+    if (deliveryFilter === 'own') {
+      matchesDelivery = s.delivery_type === 'own' || (!s.delivery_type && Number(s.delivery_amount) > 0)
+    } else if (deliveryFilter === 'external') {
+      matchesDelivery = s.delivery_type === 'external'
+    } else if (deliveryFilter === 'none') {
+      matchesDelivery = !Number(s.delivery_amount) || Number(s.delivery_amount) === 0
+    }
+
+    return matchesSearch && matchesStatus && matchesDelivery
   })
 
   const handleExportExcel = async () => {
@@ -135,6 +147,7 @@ export function SalesListClient({ initialSales, isAdmin = false }: SalesListClie
       cliente: s.customer?.name || 'Cliente General',
       subtotal: Number(s.subtotal),
       descuento: Number(s.discount_amount),
+      'Tipo Envío': s.delivery_type === 'own' ? 'Envío Propio' : s.delivery_type === 'external' ? 'Envío por Tercero' : (Number(s.delivery_amount) > 0 ? 'Envío Propio' : '—'),
       delivery: Number((s as any).delivery_amount || 0),
       total: Number(s.total),
       'método de pago': s.payments && s.payments.length > 0
@@ -214,7 +227,7 @@ export function SalesListClient({ initialSales, isAdmin = false }: SalesListClie
                 value={statusFilter}
                 onValueChange={(val) => setStatusFilter(val || 'all')}
               >
-                <SelectTrigger className="w-full sm:w-44">
+                <SelectTrigger className="w-full sm:w-40">
                   <SelectValue placeholder="Estado" />
                 </SelectTrigger>
                 <SelectContent>
@@ -224,6 +237,22 @@ export function SalesListClient({ initialSales, isAdmin = false }: SalesListClie
                       {value.label}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+
+              {/* Delivery Filter */}
+              <Select
+                value={deliveryFilter}
+                onValueChange={(val) => setDeliveryFilter(val || 'all')}
+              >
+                <SelectTrigger className="w-full sm:w-44">
+                  <SelectValue placeholder="Tipo Envío" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los envíos</SelectItem>
+                  <SelectItem value="own">Envío Propio</SelectItem>
+                  <SelectItem value="external">Envío por Tercero</SelectItem>
+                  <SelectItem value="none">Sin Delivery</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -389,10 +418,22 @@ export function SalesListClient({ initialSales, isAdmin = false }: SalesListClie
                             ? `-${formatCurrency(effectiveDiscount)}`
                             : '—'}
                         </TableCell>
-                        <TableCell className="text-right text-sm text-muted-foreground font-mono whitespace-nowrap">
-                          {Number(s.delivery_amount) > 0
-                            ? `+${formatCurrency(Number(s.delivery_amount))}`
-                            : '—'}
+                        <TableCell className="text-right text-sm font-mono whitespace-nowrap">
+                          {Number(s.delivery_amount) > 0 ? (
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span className={s.delivery_type === 'external' ? 'text-amber-600 font-bold' : 'text-muted-foreground'}>
+                                +{formatCurrency(Number(s.delivery_amount))}
+                              </span>
+                              <Badge
+                                variant={s.delivery_type === 'external' ? 'secondary' : 'default'}
+                                className={`text-[9px] py-0 px-1 font-mono font-bold uppercase ${
+                                  s.delivery_type === 'external' ? 'bg-amber-500/10 text-amber-600 hover:bg-amber-500/20' : ''
+                                }`}
+                              >
+                                {s.delivery_type === 'external' ? 'Tercero' : 'Propio'}
+                              </Badge>
+                            </div>
+                          ) : '—'}
                         </TableCell>
                         <TableCell className="text-right font-bold font-mono whitespace-nowrap">
                           {formatCurrency(Number(s.total))}

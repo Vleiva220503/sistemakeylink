@@ -35,6 +35,7 @@ export default async function VentaDetallePage({ params }: PageProps) {
       discount_amount,
       discount_type,
       delivery_amount,
+      delivery_type,
       customer_name,
       total,
       amount_paid,
