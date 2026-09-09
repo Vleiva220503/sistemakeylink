@@ -19,8 +19,10 @@ export async function getCurrentShiftSummary(registerId: string) {
     return { error: 'La caja no está abierta', data: null }
   }
 
-  // 2. Get all sales created since opened_at for this register
-  // We need to join with payments to get the breakdown
+  // 2. Get all sales for method breakdown (card, transfer, mobile, other)
+  // NOTE: We do NOT use payments.cash as source of truth for expectedCash because
+  // payments includes the external delivery fee paid by the customer (which goes to
+  // the courier, not the register). cash_movements already stores the NET amount.
   const { data: sales, error: salesError } = await supabase
     .from('sales')
     .select(`
@@ -37,23 +39,32 @@ export async function getCurrentShiftSummary(registerId: string) {
 
   if (salesError) return { error: 'Error al obtener ventas del turno' }
 
-  // 3. Calculate totals
+  // 3. Get cash_movements for this shift — this is the source of truth for cash
+  const { data: movements } = await supabase
+    .from('cash_movements')
+    .select('type, amount')
+    .eq('register_id', registerId)
+    .gte('created_at', register.opened_at)
+
+  // 4. Calculate totals
   let totalSalesCount = sales ? sales.length : 0
   let totalSalesAmount = 0
-  let totalCash = 0
+  // Non-cash payment method totals (from payments table — unaffected by delivery)
   let totalCard = 0
   let totalTransfer = 0
   let totalMobile = 0
   let totalOther = 0
+  // totalCashFromPayments = what the customer actually paid in cash (includes external delivery fee)
+  let totalCashFromPayments = 0
 
   if (sales) {
     for (const sale of sales) {
       totalSalesAmount += Number(sale.total) || 0
-      
+
       const payments = sale.payments || []
       for (const p of payments as any[]) {
         const amt = Number(p.amount) || 0
-        if (p.method === 'cash') totalCash += amt
+        if (p.method === 'cash') totalCashFromPayments += amt
         else if (p.method === 'card') totalCard += amt
         else if (p.method === 'transfer') totalTransfer += amt
         else if (p.method === 'mobile_payment') totalMobile += amt
@@ -62,15 +73,9 @@ export async function getCurrentShiftSummary(registerId: string) {
     }
   }
 
-  // We should also consider cash_movements that are not sales? (e.g. expenses, incomes)
-  // For simplicity, expected_cash = initial_amount + totalCash (from sales) + (other cash incomes) - (cash expenses).
-  // Let's get cash movements for this shift
-  const { data: movements } = await supabase
-    .from('cash_movements')
-    .select('type, amount')
-    .eq('register_id', registerId)
-    .gte('created_at', register.opened_at)
-
+  // FUENTE DE VERDAD para efectivo: cash_movements type='sale' ya descuenta el fee
+  // de delivery externo antes de registrar, por lo que refleja el neto real en caja.
+  let totalCash = 0  // NET cash from sales (excludes external delivery fee)
   let otherIncomes = 0
   let otherExpenses = 0
   let cashAdjustments = 0
@@ -78,16 +83,20 @@ export async function getCurrentShiftSummary(registerId: string) {
   if (movements) {
     for (const m of movements) {
       const amt = Number(m.amount) || 0
-      if (m.type === 'income') otherIncomes += amt
+      if (m.type === 'sale') totalCash += amt           // neto — ya excluye delivery externo
+      else if (m.type === 'income') otherIncomes += amt
       else if (m.type === 'expense') otherExpenses += amt
       else if (m.type === 'adjustment') cashAdjustments += amt
-      // type 'sale' is already captured in our payments loop, but wait!
-      // cash_movements captures it too. But we use payments for exact method breakdown.
     }
   }
 
+  // totalExternalDelivery = diferencia entre lo que el cliente pagó en cash y lo que
+  // entró realmente a caja. Evita consultar columnas delivery_type/delivery_fee que
+  // pueden no existir en el schema base.
+  const totalExternalDelivery = Math.max(0, totalCashFromPayments - totalCash)
+
   const initialAmount = Number(register.initial_amount) || 0
-  // expected_cash = initial + cash sales + incomes - expenses + adjustments
+  // expected_cash = initial + net cash sales + incomes - expenses + adjustments
   const expectedCash = initialAmount + totalCash + otherIncomes - otherExpenses + cashAdjustments
 
   return {
@@ -104,7 +113,8 @@ export async function getCurrentShiftSummary(registerId: string) {
       otherIncomes,
       otherExpenses,
       cashAdjustments,
-      expectedCash
+      expectedCash,
+      totalExternalDelivery
     }
   }
 }

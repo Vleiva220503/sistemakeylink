@@ -4,20 +4,28 @@ import { DollarSign, CreditCard, Lock, Unlock, TrendingUp, FileText } from 'luci
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatCurrency } from '@/lib/utils'
 import { CashRegisterActions } from './cash-register-actions'
 import { getCurrentShiftSummary } from '@/app/actions/cash-register'
+import { MovementsClient } from './movements-client'
 
-export default async function CajaPage() {
+export default async function CajaPage({ searchParams }: { searchParams: Promise<{ startDate?: string; endDate?: string }> }) {
   const supabase = await createClient()
+  const { startDate, endDate } = await searchParams
+
+  // Build movements query — date filter applies ONLY here
+  let movQuery = (supabase as any)
+    .from('cash_movements')
+    .select('*, register:cash_registers(name)')
+    .order('created_at', { ascending: false })
+    .limit(50)
+
+  if (startDate) movQuery = movQuery.gte('created_at', `${startDate}T00:00:00-06:00`)
+  if (endDate)   movQuery = movQuery.lte('created_at', `${endDate}T23:59:59-06:00`)
 
   const [{ data: regRows }, { data: movRows }] = await Promise.all([
     (supabase as any).from('cash_registers').select('*').order('name'),
-    (supabase as any).from('cash_movements')
-      .select('*, register:cash_registers(name)')
-      .order('created_at', { ascending: false })
-      .limit(30),
+    movQuery,
   ])
 
   const registers = (regRows as any[]) || []
@@ -117,7 +125,14 @@ export default async function CajaPage() {
                       <p className="font-medium font-mono">{summary?.totalSalesCount || 0} ({formatCurrency(summary?.totalSalesAmount || 0)})</p>
                     </div>
                   </div>
-                  
+
+                  {/* Delivery Tercero — solo visible si hay monto */}
+                  {Number(summary?.totalExternalDelivery || 0) > 0 && (
+                    <div className="flex items-center justify-between text-xs bg-amber-500/10 p-2 rounded-md border border-amber-500/20 text-amber-700 dark:text-amber-400">
+                      <span className="font-medium">Delivery Tercero (Entregado al mensajero):</span>
+                      <span className="font-mono font-bold">{formatCurrency(summary?.totalExternalDelivery || 0)}</span>
+                    </div>
+                  )}
                   <div className="space-y-2 pt-2 border-t border-border">
                     <p className="text-xs font-semibold text-muted-foreground uppercase">Desglose de Ingresos</p>
                     <div className="grid grid-cols-2 gap-2 text-sm">
@@ -190,74 +205,11 @@ export default async function CajaPage() {
           <CardTitle>Movimientos Recientes</CardTitle>
         </CardHeader>
         <CardContent>
-          {movements.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">Sin movimientos registrados</p>
-          ) : (
-            <>
-              {/* Mobile Card View (< 768px) */}
-              <div className="block md:hidden space-y-3">
-                {movements.map((m: any) => {
-                  const isPositive = m.type === 'sale' || m.type === 'income'
-                  return (
-                    <div key={m.id} className="bg-background border border-border p-3.5 space-y-2.5 text-xs shadow-sm">
-                      <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2">
-                        <div>
-                          <p className="font-bold text-foreground">{m.register?.name || 'Caja'}</p>
-                          <p className="text-muted-foreground font-mono text-[11px]">
-                            {new Date(m.created_at).toLocaleString('es-NI', { timeZone: 'America/Managua', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                          </p>
-                        </div>
-                        <Badge variant={isPositive ? 'default' : 'destructive'} className="capitalize shrink-0">
-                          {m.type === 'sale' ? 'Venta' : m.type === 'expense' ? 'Gasto' : m.type === 'income' ? 'Ingreso' : 'Ajuste'}
-                        </Badge>
-                      </div>
-
-                      <div className="flex items-center justify-between font-mono text-xs">
-                        <span className="text-muted-foreground truncate max-w-[200px]">{m.description || 'Sin descripción'}</span>
-                        <span className={`font-bold text-sm ${isPositive ? 'text-success' : 'text-destructive'}`}>
-                          {isPositive ? '+' : '-'}{formatCurrency(Number(m.amount))}
-                        </span>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-
-              {/* Desktop Table View (>= 768px) */}
-              <div className="hidden md:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="whitespace-nowrap">Fecha</TableHead>
-                      <TableHead className="whitespace-nowrap">Caja</TableHead>
-                      <TableHead className="whitespace-nowrap">Tipo</TableHead>
-                      <TableHead className="whitespace-nowrap">Descripción</TableHead>
-                      <TableHead className="text-right whitespace-nowrap">Monto</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {movements.map((m: any) => (
-                      <TableRow key={m.id}>
-                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                          {new Date(m.created_at).toLocaleString('es-NI', { timeZone: 'America/Managua', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                        </TableCell>
-                        <TableCell className="text-sm whitespace-nowrap">{m.register?.name}</TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          <Badge variant={m.type === 'sale' || m.type === 'income' ? 'default' : 'destructive'} className="capitalize">
-                            {m.type === 'sale' ? 'Venta' : m.type === 'expense' ? 'Gasto' : m.type === 'income' ? 'Ingreso' : 'Ajuste'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-sm whitespace-nowrap">{m.description || '—'}</TableCell>
-                        <TableCell className={`text-right font-bold whitespace-nowrap ${m.type === 'sale' || m.type === 'income' ? 'text-success' : 'text-destructive'}`}>
-                          {m.type === 'sale' || m.type === 'income' ? '+' : '-'}{formatCurrency(Number(m.amount))}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </>
-          )}
+          <MovementsClient
+            movements={movements}
+            startDate={startDate}
+            endDate={endDate}
+          />
         </CardContent>
       </Card>
     </div>
