@@ -479,10 +479,16 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
             </span>
           </div>
 
-          {/* Scrollable cart items list */}
+          {/* ── Single unified scrollable zone ──
+               Everything variable (empty state / items list / accordion / totals / payment)
+               lives here. Only the COBRAR button is pinned outside.
+               This prevents scroll trapping: a single overflow-y-auto means mouse wheel,
+               keyboard arrows and touch all scroll the same container with no nested
+               overflow siblings competing for events.
+          */}
           <div
             tabIndex={0}
-            aria-label="Lista de artículos en el carrito"
+            aria-label="Panel del carrito"
             className="flex-1 overflow-y-auto min-h-0 scroll-smooth focus:outline-none focus:ring-2 focus:ring-primary focus:ring-inset"
             style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
             onKeyDown={(e) => {
@@ -690,13 +696,9 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
                 })}
               </div>
             )}
-          </div>
 
-          {/* Footer — Totals + Collapsible Options + Payment + Checkout */}
-          <div className="border-t border-border bg-background/50 flex flex-col shrink-0">
-
-            {/* ── Scrollable zone (accordion + totals + payment) ── */}
-            <div className="overflow-y-auto p-3.5 flex flex-col gap-2.5" style={{ maxHeight: '45dvh' }}>
+            {/* ── Footer: separator then accordion + totals + payment ── */}
+            <div className="border-t border-border bg-background/50 flex flex-col p-3.5 gap-2.5">
 
               {/* Collapsible Accordion for Optional Fields (Customer & Delivery) */}
               <div className="border border-border/80 bg-background rounded-none overflow-hidden">
@@ -884,10 +886,12 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
                 </Button>
               </div>
 
-            </div>{/* end scrollable zone */}
+            </div>{/* end footer inner */}
 
-            {/* ── Pinned COBRAR — always visible at the bottom of the panel ── */}
-            <div className="px-3.5 pb-3.5 pt-2 border-t border-border/50 bg-background/80">
+          </div>{/* end unified scrollable zone */}
+
+          {/* ── Pinned COBRAR — always visible at the bottom of the panel ── */}
+          <div className="px-3.5 pb-3.5 pt-2 border-t border-border/50 bg-background/80 shrink-0">
               <Button
                 id="checkout-btn"
                 type="button"
@@ -899,9 +903,8 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
               >
                 {isProcessing ? 'PROCESANDO...' : `COBRAR · ${formatCurrency(total)}`}
               </Button>
-            </div>
-
           </div>
+
         </div>
 
       </div>
