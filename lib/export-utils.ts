@@ -636,3 +636,187 @@ export async function exportCashMovementsPDF(
   doc.save(`Movimientos_Caja_${new Date().toISOString().slice(0, 10)}.pdf`)
 }
 
+// ─── CASH REGISTER SESSION HISTORY EXPORTS ──────────────────────────────────
+
+export interface SessionHistoryExportRow {
+  id: string
+  register: { name: string } | null
+  opened_at: string | null
+  closed_at: string | null
+  initial_amount: number
+  expected_cash: number
+  counted_cash: number
+  difference: number | null
+  total_sales_count: number
+  total_sales_amount: number
+  total_cash: number
+  total_card: number
+  total_transfer: number
+  total_mobile: number
+  total_other: number
+  notes: string | null
+  opener: { id: string; full_name: string } | null
+  closer: { id: string; full_name: string } | null
+}
+
+export async function exportSessionHistoryPDF(
+  sessions: SessionHistoryExportRow[],
+  summary: {
+    dateRange: string
+    totalVentas: number
+    totalCierres: number
+    conDescuadre: number
+    descuadreTotal: number
+  },
+) {
+  const { default: jsPDF } = await import('jspdf')
+  const { default: autoTable } = await import('jspdf-autotable')
+
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+  const margin = 18
+  const pageW = doc.internal.pageSize.getWidth()
+  const contentW = pageW - margin * 2
+
+  const startY = drawPDFHeader(doc, 'Historial de Cierres de Caja')
+
+  // Period label
+  doc.setFont('helvetica', 'italic')
+  doc.setFontSize(7.5)
+  doc.setTextColor(...BRAND.gray)
+  doc.text(`Período: ${summary.dateRange}`, margin, startY)
+
+  // Summary boxes — 4 boxes in one row
+  const boxW = (contentW - 18) / 4
+  const boxH = 16
+  const metaY = startY + 6
+
+  const boxes = [
+    { label: 'TOTAL CIERRES', value: String(summary.totalCierres), accent: false },
+    { label: 'TOTAL VENTAS', value: formatNIO(summary.totalVentas), accent: true },
+    { label: 'CON DESCUADRE', value: String(summary.conDescuadre), accent: false },
+    {
+      label: 'DESCUADRE ACUMULADO',
+      value: (summary.descuadreTotal >= 0 ? '+' : '') + formatNIO(summary.descuadreTotal),
+      accent: false,
+    },
+  ]
+
+  boxes.forEach((box, i) => {
+    const x = margin + i * (boxW + 6)
+    if (box.accent) {
+      doc.setFillColor(...BRAND.accent)
+      doc.roundedRect(x, metaY, boxW, boxH, 2, 2, 'F')
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(6.5)
+      doc.setTextColor(...BRAND.accentLight)
+      doc.text(box.label, x + 4, metaY + 5.5)
+      doc.setFontSize(11)
+      doc.setTextColor(...BRAND.white)
+      doc.text(box.value, x + 4, metaY + 13)
+    } else {
+      doc.setFillColor(...BRAND.lightGray)
+      doc.roundedRect(x, metaY, boxW, boxH, 2, 2, 'F')
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(6.5)
+      doc.setTextColor(...BRAND.gray)
+      doc.text(box.label, x + 4, metaY + 5.5)
+      doc.setFontSize(11)
+      doc.setTextColor(...BRAND.text)
+      doc.text(box.value, x + 4, metaY + 13)
+    }
+  })
+
+  function fmtDt(iso: string | null): string {
+    if (!iso) return '—'
+    return new Date(iso).toLocaleString('es-NI', {
+      timeZone: 'America/Managua',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
+  function fmtDiff(diff: number | null): string {
+    if (diff === null) return '—'
+    if (Number(diff) === 0) return formatNIO(0)
+    return (Number(diff) > 0 ? '+' : '') + formatNIO(Number(diff))
+  }
+
+  const bodyData = sessions.map((s) => {
+    const sameUser =
+      s.opener?.id && s.closer?.id && s.opener.id === s.closer.id
+    const userStr = sameUser
+      ? s.opener?.full_name || 'Desconocido'
+      : `Abrió: ${s.opener?.full_name || '?'} / Cerró: ${s.closer?.full_name || '?'}`
+    return [
+      fmtDt(s.closed_at),
+      s.register?.name || '—',
+      userStr,
+      `${s.total_sales_count} vtas\n${formatNIO(Number(s.total_sales_amount))}`,
+      formatNIO(Number(s.initial_amount)),
+      formatNIO(Number(s.expected_cash)),
+      formatNIO(Number(s.counted_cash)),
+      fmtDiff(s.difference),
+    ]
+  })
+
+  autoTable(doc, {
+    startY: metaY + boxH + 6,
+    head: [['Fecha Cierre', 'Caja', 'Usuario', 'Ventas', 'Fondo', 'Esperado', 'Contado', 'Descuadre']],
+    body: bodyData,
+    margin: { left: margin, right: margin },
+    tableWidth: contentW,
+    styles: {
+      font: 'helvetica',
+      fontSize: 7,
+      cellPadding: { top: 2.5, bottom: 2.5, left: 3, right: 3 },
+      textColor: BRAND.text,
+      lineColor: BRAND.border,
+      lineWidth: 0.2,
+    },
+    headStyles: {
+      fillColor: BRAND.primary,
+      textColor: BRAND.white,
+      fontStyle: 'bold',
+      fontSize: 6.5,
+    },
+    alternateRowStyles: { fillColor: BRAND.lightGray },
+    columnStyles: {
+      0: { cellWidth: 36 },
+      1: { cellWidth: 24 },
+      2: { cellWidth: 52 },
+      3: { cellWidth: 28 },
+      4: { cellWidth: 26, halign: 'right' },
+      5: { cellWidth: 26, halign: 'right' },
+      6: { cellWidth: 26, halign: 'right' },
+      7: { cellWidth: 'auto', halign: 'right' },
+    },
+    // Highlight rows with discrepancy
+    willDrawCell: (data: any) => {
+      if (data.section === 'body' && data.column.index === 7) {
+        const diff = Number(sessions[data.row.index]?.difference ?? 0)
+        if (diff < 0) {
+          doc.setTextColor(220, 38, 38) // red
+        } else if (diff > 0) {
+          doc.setTextColor(22, 163, 74) // green
+        }
+      }
+    },
+    didDrawPage: (data: any) => {
+      const pageCount = (doc as any).internal.getNumberOfPages()
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(7)
+      doc.setTextColor(...BRAND.gray)
+      doc.text(
+        `Mundo de Calzado — Página ${data.pageNumber} de ${pageCount}`,
+        pageW / 2,
+        doc.internal.pageSize.getHeight() - 8,
+        { align: 'center' },
+      )
+    },
+  })
+
+  doc.save(`Cierres_Caja_${new Date().toISOString().slice(0, 10)}.pdf`)
+}
