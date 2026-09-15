@@ -479,10 +479,10 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
             </span>
           </div>
 
-          {/* Scrollable cart items list */}
+          {/* ── Unified scrollable zone: items + options accordion + totals + payment ── */}
           <div
             tabIndex={0}
-            aria-label="Lista de artículos en el carrito"
+            aria-label="Panel del carrito"
             className="flex-1 overflow-y-auto min-h-0 scroll-smooth focus:outline-none focus:ring-2 focus:ring-primary focus:ring-inset"
             style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
             onKeyDown={(e) => {
@@ -508,8 +508,9 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
               }
             }}
           >
+            {/* Cart items list */}
             {cart.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-6 text-center">
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground p-6 text-center">
                 <ShoppingCart className="h-10 w-10 opacity-20 mb-3" />
                 <p className="text-xs font-display font-bold uppercase tracking-wider">CARRITO VACÍO</p>
                 <p className="text-[11px] text-muted-foreground mt-1">Selecciona los pares del catálogo</p>
@@ -690,13 +691,9 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
                 })}
               </div>
             )}
-          </div>
 
-          {/* Footer — Totals + Collapsible Options + Payment + Checkout */}
-          <div className="border-t border-border bg-background/50 flex flex-col shrink-0">
-
-            {/* ── Scrollable zone (accordion + totals + payment) ── */}
-            <div className="overflow-y-auto p-3.5 flex flex-col gap-2.5" style={{ maxHeight: '45dvh' }}>
+            {/* ── Footer content (accordion + totals + payment) — part of the unified scroll ── */}
+            <div className="border-t border-border bg-background/50 p-3.5 flex flex-col gap-2.5">
 
               {/* Collapsible Accordion for Optional Fields (Customer & Delivery) */}
               <div className="border border-border/80 bg-background rounded-none overflow-hidden">
@@ -884,10 +881,11 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
                 </Button>
               </div>
 
-            </div>{/* end scrollable zone */}
+            </div>{/* end footer content */}
+          </div>{/* end unified scroll */}
 
-            {/* ── Pinned COBRAR — always visible at the bottom of the panel ── */}
-            <div className="px-3.5 pb-3.5 pt-2 border-t border-border/50 bg-background/80">
+          {/* ── Pinned COBRAR — always visible at the bottom of the panel ── */}
+          <div className="px-3.5 pb-3.5 pt-2 border-t border-border/50 bg-background/80 shrink-0">
               <Button
                 id="checkout-btn"
                 type="button"
@@ -899,9 +897,8 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
               >
                 {isProcessing ? 'PROCESANDO...' : `COBRAR · ${formatCurrency(total)}`}
               </Button>
-            </div>
-
           </div>
+
         </div>
 
       </div>
