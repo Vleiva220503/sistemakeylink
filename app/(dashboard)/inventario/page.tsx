@@ -14,7 +14,7 @@ export default async function InventarioPage() {
     .from('product_variants')
     .select(`
       id, sku, size, color, quality, image_url, stock_quantity, stock_min, stock_reorder_point, cost, is_active,
-      product:products(
+      product:products!inner(
         id, name, sku, status, description, category_id, brand_id,
         categories(id, name, slug, description),
         brands(id, name, slug, logo_url),
@@ -22,8 +22,8 @@ export default async function InventarioPage() {
       )
     `)
     .eq('is_active', true)
-    .order('stock_quantity', { ascending: true })
-    .limit(100)
+    .eq('product.status', 'active')
+    .order('id', { ascending: true })
 
   const variants = (rows as any[]) || []
 

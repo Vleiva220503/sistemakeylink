@@ -127,9 +127,9 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
     return result
   }, [variants, searchQuery, categoryFilter, brandFilter, stockFilter, sortBy])
 
-  // Stats on filtered inventory
-  const outOfStock = filteredVariants.filter((v: any) => v.stock_quantity <= 0)
-  const lowStock = filteredVariants.filter((v: any) => v.stock_quantity > 0 && v.stock_quantity <= v.stock_reorder_point)
+  // Stats always calculated over ALL variants (not filtered), so counters are always accurate
+  const outOfStock = variants.filter((v: any) => v.stock_quantity <= 0)
+  const lowStock = variants.filter((v: any) => v.stock_quantity > 0 && v.stock_quantity <= v.stock_reorder_point)
   const totalValue = filteredVariants.reduce((sum: number, v: any) => sum + (v.stock_quantity * v.cost), 0)
 
   function getStockStatus(v: any) {
