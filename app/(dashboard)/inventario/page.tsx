@@ -18,7 +18,7 @@ export default async function InventarioPage() {
         id, name, sku, status, description, category_id, brand_id,
         categories(id, name, slug, description),
         brands(id, name, slug, logo_url),
-        product_images(url, is_primary, sort_order)
+        product_images(url, is_primary)
       )
     `)
     .eq('is_active', true)

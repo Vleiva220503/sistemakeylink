@@ -1,4 +1,5 @@
 'use client'
+import { useDebounce } from '@/hooks/use-debounce'
 
 import { useState, useMemo, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -52,6 +53,7 @@ export function SalesReportClient({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [deliveryFilter, setDeliveryFilter] = useState<DeliveryFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const debouncedSearch = useDebounce(searchQuery, 250)
 
   const [isMounted, setIsMounted] = useState(false)
   const [chartKey, setChartKey] = useState(0)
@@ -92,8 +94,8 @@ export function SalesReportClient({
     let result = [...initialSales]
 
     // 1. Text Search (sale number or customer)
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase()
       result = result.filter(s =>
         s.sale_number?.toLowerCase().includes(q) ||
         s.customer?.name?.toLowerCase().includes(q)
@@ -132,7 +134,7 @@ export function SalesReportClient({
     }
 
     return result
-  }, [searchQuery, cashierFilter, paymentFilter, statusFilter, deliveryFilter, initialSales])
+  }, [debouncedSearch, cashierFilter, paymentFilter, statusFilter, deliveryFilter, initialSales])
 
   // Dynamic KPI Aggregation
   const completedSales = filteredSales.filter(s => s.status === 'completed')

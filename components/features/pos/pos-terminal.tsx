@@ -1,6 +1,8 @@
+
 'use client'
 
 import { useState, useMemo, useRef, useCallback } from 'react'
+import { useDebounce } from '@/hooks/use-debounce'
 import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, Receipt, AlertTriangle, ChevronDown, ChevronUp, Truck, PackageCheck } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -29,7 +31,7 @@ export type PosVariant = {
     base_price: number
     brand?: { name: string; logo_url?: string | null } | null
     category?: { name: string; description?: string | null } | null
-    product_images?: { url: string; is_primary: boolean; sort_order: number }[]
+    product_images?: { url: string; is_primary: boolean }[]
   }
 }
 
@@ -91,9 +93,11 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
   const customerNameRef = useRef<HTMLInputElement>(null)
   const accordionBtnRef = useRef<HTMLButtonElement>(null)
 
+  const debouncedSearch = useDebounce(searchQuery, 250)
+
   const filteredVariants = useMemo(() => {
-    if (!searchQuery.trim()) return variants
-    const q = searchQuery.toLowerCase()
+    if (!debouncedSearch.trim()) return variants
+    const q = debouncedSearch.toLowerCase()
     return variants.filter(v =>
       v.product?.name?.toLowerCase().includes(q) ||
       v.sku?.toLowerCase().includes(q) ||
@@ -104,7 +108,7 @@ export function PosTerminal({ registerId, registerName, variants }: PosTerminalP
       v.product?.category?.name?.toLowerCase().includes(q) ||
       v.product?.category?.description?.toLowerCase().includes(q)
     )
-  }, [searchQuery, variants])
+  }, [debouncedSearch, variants])
 
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity - item.discount_amount), 0)
   const total = subtotal + deliveryAmount

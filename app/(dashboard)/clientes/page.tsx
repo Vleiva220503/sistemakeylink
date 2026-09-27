@@ -8,7 +8,7 @@ export default async function ClientesPage() {
   const supabase = await createClient()
   const { data: rows, error } = await supabase
     .from('customers')
-    .select('*')
+    .select('id, name, email, phone, address, credit_limit, is_active, notes')
     .order('name')
 
   if (error) console.error('Error cargando clientes:', error)

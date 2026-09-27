@@ -1,4 +1,5 @@
 'use client'
+import { useDebounce } from '@/hooks/use-debounce'
 
 import { useState, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -52,6 +53,7 @@ export function CashReportClient({
   const [typeFilter, setTypeFilter] = useState('')
   const [cashierFilter, setCashierFilter] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const debouncedSearch = useDebounce(searchQuery, 250)
 
   // Sync date changes with URL to fetch new server-side data
   const handleDateChange = (start: string, end: string) => {
@@ -73,8 +75,8 @@ export function CashReportClient({
     let result = [...initialMovements]
 
     // 1. Text Search (description)
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase()
       result = result.filter(m =>
         m.description?.toLowerCase().includes(q)
       )
@@ -96,7 +98,7 @@ export function CashReportClient({
     }
 
     return result
-  }, [searchQuery, registerFilter, typeFilter, cashierFilter, initialMovements])
+  }, [debouncedSearch, registerFilter, typeFilter, cashierFilter, initialMovements])
 
   // Aggregate metrics
   const totalSales = filteredMovements

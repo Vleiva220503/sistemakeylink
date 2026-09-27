@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { Activity, ArrowUpCircle, ArrowDownCircle, RefreshCw, Calendar, Search } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { PaginationControls } from '@/components/shared/pagination-controls'
 
 const MOVEMENT_TYPES: Record<string, { label: string; color: string; icon: any }> = {
   purchase: { label: 'Compra', color: 'text-success', icon: ArrowUpCircle },
@@ -40,10 +41,14 @@ interface Movement {
 
 interface MovementsListClientProps {
   initialMovements: Movement[]
+  totalCount: number
+  currentPage: number
+  pageSize: number
 }
 
-export function MovementsListClient({ initialMovements }: MovementsListClientProps) {
+export function MovementsListClient({ initialMovements, totalCount, currentPage, pageSize }: MovementsListClientProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const searchParams = useSearchParams()
 
   const [search, setSearch] = useState('')
@@ -55,16 +60,11 @@ export function MovementsListClient({ initialMovements }: MovementsListClientPro
 
   function handleFilterDates() {
     const params = new URLSearchParams(searchParams.toString())
-    if (startDate) {
-      params.set('startDate', startDate)
-    } else {
-      params.delete('startDate')
-    }
-    if (endDate) {
-      params.set('endDate', endDate)
-    } else {
-      params.delete('endDate')
-    }
+    if (startDate) params.set('startDate', startDate)
+    else params.delete('startDate')
+    if (endDate) params.set('endDate', endDate)
+    else params.delete('endDate')
+    params.delete('page')
     router.push(`/inventario/movimientos?${params.toString()}`)
   }
 
@@ -74,7 +74,14 @@ export function MovementsListClient({ initialMovements }: MovementsListClientPro
     const params = new URLSearchParams(searchParams.toString())
     params.delete('startDate')
     params.delete('endDate')
+    params.delete('page')
     router.push(`/inventario/movimientos?${params.toString()}`)
+  }
+
+  function handlePageChange(page: number) {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('page', String(page))
+    router.push(`${pathname}?${params.toString()}`)
   }
 
   const filteredMovements = initialMovements.filter((m) => {
@@ -320,6 +327,12 @@ export function MovementsListClient({ initialMovements }: MovementsListClientPro
             </div>
           </>
         )}
+        <PaginationControls
+          currentPage={currentPage}
+          totalCount={totalCount}
+          pageSize={pageSize}
+          onPageChange={handlePageChange}
+        />
       </CardContent>
     </Card>
   )

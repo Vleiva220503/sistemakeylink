@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { ShoppingBag, Calendar, Package, AlertTriangle, Search } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { PaginationControls } from '@/components/shared/pagination-controls'
 
 const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   draft: { label: 'Borrador', variant: 'secondary' },
@@ -40,10 +41,14 @@ interface Purchase {
 
 interface PurchasesListClientProps {
   initialPurchases: Purchase[]
+  totalCount: number
+  currentPage: number
+  pageSize: number
 }
 
-export function PurchasesListClient({ initialPurchases }: PurchasesListClientProps) {
+export function PurchasesListClient({ initialPurchases, totalCount, currentPage, pageSize }: PurchasesListClientProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const searchParams = useSearchParams()
 
   const [search, setSearch] = useState('')
@@ -55,16 +60,11 @@ export function PurchasesListClient({ initialPurchases }: PurchasesListClientPro
 
   function handleFilterDates() {
     const params = new URLSearchParams(searchParams.toString())
-    if (startDate) {
-      params.set('startDate', startDate)
-    } else {
-      params.delete('startDate')
-    }
-    if (endDate) {
-      params.set('endDate', endDate)
-    } else {
-      params.delete('endDate')
-    }
+    if (startDate) params.set('startDate', startDate)
+    else params.delete('startDate')
+    if (endDate) params.set('endDate', endDate)
+    else params.delete('endDate')
+    params.delete('page')
     router.push(`/compras?${params.toString()}`)
   }
 
@@ -74,7 +74,14 @@ export function PurchasesListClient({ initialPurchases }: PurchasesListClientPro
     const params = new URLSearchParams(searchParams.toString())
     params.delete('startDate')
     params.delete('endDate')
+    params.delete('page')
     router.push(`/compras?${params.toString()}`)
+  }
+
+  function handlePageChange(page: number) {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('page', String(page))
+    router.push(`${pathname}?${params.toString()}`)
   }
 
   const filteredPurchases = initialPurchases.filter((p) => {
@@ -307,6 +314,12 @@ export function PurchasesListClient({ initialPurchases }: PurchasesListClientPro
             </div>
           </>
         )}
+        <PaginationControls
+          currentPage={currentPage}
+          totalCount={totalCount}
+          pageSize={pageSize}
+          onPageChange={handlePageChange}
+        />
       </CardContent>
     </Card>
   )

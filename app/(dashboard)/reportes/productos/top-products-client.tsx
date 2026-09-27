@@ -1,4 +1,5 @@
 'use client'
+import { useDebounce } from '@/hooks/use-debounce'
 
 import { useState, useMemo, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -66,6 +67,7 @@ export function TopProductsReportClient({
   const [categoryFilter, setCategoryFilter] = useState('')
   const [brandFilter, setBrandFilter] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const debouncedSearch = useDebounce(searchQuery, 250)
 
   const [isMounted, setIsMounted] = useState(false)
   const [chartKey, setChartKey] = useState(0)
@@ -104,8 +106,8 @@ export function TopProductsReportClient({
     let result = [...initialData]
 
     // 1. Text Search (name or sku)
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase()
       result = result.filter(item =>
         item.name.toLowerCase().includes(q) ||
         item.sku.toLowerCase().includes(q)
@@ -124,7 +126,7 @@ export function TopProductsReportClient({
 
     // Sort by revenue descending (ranking)
     return result.sort((a, b) => b.revenue - a.revenue)
-  }, [searchQuery, categoryFilter, brandFilter, initialData])
+  }, [debouncedSearch, categoryFilter, brandFilter, initialData])
 
   // Aggregate metrics
   const totalUnitsSold = filteredData.reduce((sum, item) => sum + item.unitsSold, 0)

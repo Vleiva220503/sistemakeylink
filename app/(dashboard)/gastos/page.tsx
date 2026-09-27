@@ -5,21 +5,31 @@ import { formatCurrency } from '@/lib/utils'
 import { ExpenseForm } from './expense-form'
 import { ExpensesListClient } from './expenses-list-client'
 
-export default async function GastosPage() {
-  const supabase = await createClient()
+const PAGE_SIZE = 50
 
-  const [{ data: expRows }, { data: catRows }] = await Promise.all([
+export default async function GastosPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  const supabase = await createClient()
+  const { page: pageParam } = await searchParams
+  const currentPage = Math.max(0, parseInt(pageParam || '0', 10))
+  const from = currentPage * PAGE_SIZE
+  const to = from + PAGE_SIZE - 1
+
+  const [{ data: expRows, count: totalCount }, { data: catRows }] = await Promise.all([
     (supabase as any).from('expenses').select(`
       *, category:expense_categories(name)
-    `).order('expense_date', { ascending: false }).limit(300),
+    `, { count: 'exact' }).order('expense_date', { ascending: false }).range(from, to),
     (supabase as any).from('expense_categories').select('*').eq('is_active', true).order('name'),
   ])
 
   const expenses = (expRows as any[]) || []
   const categories = (catRows as any[]) || []
+  const safeTotal = totalCount ?? 0
 
-  // Only count non-cancelled expenses in KPIs
-  const activeExpenses = expenses.filter((e: any) => !e.is_cancelled)
+  // Lightweight query for full KPIs
+  const { data: kpiRows } = await (supabase as any).from('expenses')
+    .select('is_cancelled, expense_date, amount')
+  const kpiExpenses = (kpiRows as any[]) || []
+  const activeExpenses = kpiExpenses.filter((e: any) => !e.is_cancelled)
 
   const totalMonth = activeExpenses
     .filter((e: any) => new Date(e.expense_date).getMonth() === new Date().getMonth()
@@ -80,7 +90,7 @@ export default async function GastosPage() {
         </Card>
       </div>
 
-      <ExpensesListClient initialExpenses={expenses} categories={categories} />
+      <ExpensesListClient initialExpenses={expenses} categories={categories} totalCount={safeTotal} currentPage={currentPage} pageSize={PAGE_SIZE} />
     </div>
   )
 }

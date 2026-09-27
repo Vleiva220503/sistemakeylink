@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { ShoppingCart, Calendar, Search, ShieldAlert, Trash2, Loader2, Eye } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -25,6 +25,7 @@ import { formatCurrency } from '@/lib/utils'
 import { voidSale } from '@/app/actions/sales'
 import { toast } from 'sonner'
 import { ExportButton } from '@/components/shared/export-button'
+import { PaginationControls } from '@/components/shared/pagination-controls'
 
 const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   completed: { label: 'Completada', variant: 'default' },
@@ -72,10 +73,14 @@ interface Sale {
 interface SalesListClientProps {
   initialSales: Sale[]
   isAdmin?: boolean
+  totalCount: number
+  currentPage: number
+  pageSize: number
 }
 
-export function SalesListClient({ initialSales, isAdmin = false }: SalesListClientProps) {
+export function SalesListClient({ initialSales, isAdmin = false, totalCount, currentPage, pageSize }: SalesListClientProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
 
@@ -89,16 +94,11 @@ export function SalesListClient({ initialSales, isAdmin = false }: SalesListClie
 
   function handleFilterDates() {
     const params = new URLSearchParams(searchParams.toString())
-    if (startDate) {
-      params.set('startDate', startDate)
-    } else {
-      params.delete('startDate')
-    }
-    if (endDate) {
-      params.set('endDate', endDate)
-    } else {
-      params.delete('endDate')
-    }
+    if (startDate) params.set('startDate', startDate)
+    else params.delete('startDate')
+    if (endDate) params.set('endDate', endDate)
+    else params.delete('endDate')
+    params.delete('page') // reset to page 0 when filter changes
     router.push(`/ventas/historial?${params.toString()}`)
   }
 
@@ -108,7 +108,14 @@ export function SalesListClient({ initialSales, isAdmin = false }: SalesListClie
     const params = new URLSearchParams(searchParams.toString())
     params.delete('startDate')
     params.delete('endDate')
+    params.delete('page')
     router.push(`/ventas/historial?${params.toString()}`)
+  }
+
+  function handlePageChange(page: number) {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('page', String(page))
+    router.push(`${pathname}?${params.toString()}`)
   }
 
   const filteredSales = initialSales.filter((s) => {
@@ -205,7 +212,10 @@ export function SalesListClient({ initialSales, isAdmin = false }: SalesListClie
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <CardTitle className="flex items-center gap-2">
               <ShoppingCart className="h-5 w-5" />
-              Todas las Ventas ({filteredSales.length})
+              Todas las Ventas
+              <span className="text-muted-foreground font-normal text-sm">
+                ({initialSales.length} en esta página)
+              </span>
             </CardTitle>
 
             <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
@@ -521,6 +531,12 @@ export function SalesListClient({ initialSales, isAdmin = false }: SalesListClie
             </div>
           </>
         )}
+        <PaginationControls
+          currentPage={currentPage}
+          totalCount={totalCount}
+          pageSize={pageSize}
+          onPageChange={handlePageChange}
+        />
       </CardContent>
     </Card>
   )

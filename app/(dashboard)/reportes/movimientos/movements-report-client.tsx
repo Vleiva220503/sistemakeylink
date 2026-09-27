@@ -1,4 +1,5 @@
 'use client'
+import { useDebounce } from '@/hooks/use-debounce'
 
 import { useState, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -50,6 +51,7 @@ export function MovementsReportClient({
   const [typeFilter, setTypeFilter] = useState('')
   const [userFilter, setUserFilter] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const debouncedSearch = useDebounce(searchQuery, 250)
 
   // Sync date changes with URL to fetch new server-side data
   const handleDateChange = (start: string, end: string) => {
@@ -70,8 +72,8 @@ export function MovementsReportClient({
     let result = [...initialMovements]
 
     // 1. Text Search (product name or sku)
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase()
       result = result.filter(m =>
         m.product_variants?.product?.name?.toLowerCase().includes(q) ||
         m.product_variants?.sku?.toLowerCase().includes(q)
@@ -89,7 +91,7 @@ export function MovementsReportClient({
     }
 
     return result
-  }, [searchQuery, typeFilter, userFilter, initialMovements])
+  }, [debouncedSearch, typeFilter, userFilter, initialMovements])
 
   // Aggregate metrics
   const totalCount = filteredMovements.length

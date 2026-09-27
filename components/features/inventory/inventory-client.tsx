@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useDebounce } from '@/hooks/use-debounce'
 import { Package, AlertTriangle, TrendingDown, Eye, Plus, Search, Filter, RotateCcw, ArrowUpDown } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -61,12 +62,14 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
   }, [variants])
 
   // Filter & Sort Logic
+  const debouncedSearch = useDebounce(searchQuery, 250)
+
   const filteredVariants = useMemo(() => {
     let result = [...variants]
 
     // 1. Text Search (Name, SKU, Barcode)
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase()
       result = result.filter((v: any) =>
         v.product?.name?.toLowerCase().includes(q) ||
         v.sku?.toLowerCase().includes(q) ||
@@ -125,7 +128,7 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
     })
 
     return result
-  }, [variants, searchQuery, categoryFilter, brandFilter, stockFilter, sortBy])
+  }, [variants, debouncedSearch, categoryFilter, brandFilter, stockFilter, sortBy])
 
   // Stats always calculated over ALL variants (not filtered), so counters are always accurate
   const outOfStock = variants.filter((v: any) => v.stock_quantity <= 0)

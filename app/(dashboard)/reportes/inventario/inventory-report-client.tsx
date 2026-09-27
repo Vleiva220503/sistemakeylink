@@ -1,4 +1,5 @@
 'use client'
+import { useDebounce } from '@/hooks/use-debounce'
 
 import { useState, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -35,6 +36,7 @@ export function InventoryReportClient({
   isAdmin,
 }: InventoryReportClientProps) {
   const [searchQuery, setSearchQuery] = useState('')
+  const debouncedSearch = useDebounce(searchQuery, 250)
   const [categoryFilter, setCategoryFilter] = useState('')
   const [brandFilter, setBrandFilter] = useState('')
   const [stockFilter, setStockFilter] = useState<StockStatusFilter>('all')
@@ -45,8 +47,8 @@ export function InventoryReportClient({
     let result = [...initialVariants]
 
     // 1. Text Search (name, sku)
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase()
       result = result.filter(v =>
         v.product?.name?.toLowerCase().includes(q) ||
         v.sku?.toLowerCase().includes(q)
@@ -76,7 +78,7 @@ export function InventoryReportClient({
     }
 
     return result
-  }, [searchQuery, categoryFilter, brandFilter, stockFilter, initialVariants])
+  }, [debouncedSearch, categoryFilter, brandFilter, stockFilter, initialVariants])
 
   // Aggregate stats in real-time
   const totalUnits = filteredVariants.reduce((sum, v) => sum + v.stock_quantity, 0)

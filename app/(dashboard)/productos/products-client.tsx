@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useTransition } from 'react'
+import { useDebounce } from '@/hooks/use-debounce'
 import { ProductCard } from '@/components/shared/product-card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -119,6 +120,8 @@ export function ProductsClient({ initialProducts, categories, brands, isAdmin }:
 
   const hasFilters = searchQuery || categoryFilter || brandFilter || viewFilter !== 'active'
 
+  const debouncedSearch = useDebounce(searchQuery, 250)
+
   const discontinuedCount = useMemo(
     () => initialProducts.filter((p) => p.status === 'discontinued').length,
     [initialProducts]
@@ -147,8 +150,8 @@ export function ProductsClient({ initialProducts, categories, brands, isAdmin }:
     // 'all' => no filter applied
 
     // 1. Text search (name, sku, barcode)
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase()
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase()
       result = result.filter(p =>
         p.name?.toLowerCase().includes(q) ||
         p.sku?.toLowerCase().includes(q) ||
@@ -180,7 +183,7 @@ export function ProductsClient({ initialProducts, categories, brands, isAdmin }:
     })
 
     return result
-  }, [initialProducts, searchQuery, categoryFilter, brandFilter, viewFilter, sortBy])
+  }, [initialProducts, debouncedSearch, categoryFilter, brandFilter, viewFilter, sortBy])
 
   function handleResetFilters() {
     setSearchQuery('')

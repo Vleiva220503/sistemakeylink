@@ -7,12 +7,18 @@ interface PageProps {
   searchParams: Promise<{
     startDate?: string
     endDate?: string
+    page?: string
   }>
 }
 
+const PAGE_SIZE = 50
+
 export default async function MovimientosInventarioPage({ searchParams }: PageProps) {
   const supabase = await createClient()
-  const { startDate, endDate } = await searchParams
+  const { startDate, endDate, page: pageParam } = await searchParams
+  const currentPage = Math.max(0, parseInt(pageParam || '0', 10))
+  const from = currentPage * PAGE_SIZE
+  const to = from + PAGE_SIZE - 1
 
   let query = supabase
     .from('inventory_movements')
@@ -28,15 +34,20 @@ export default async function MovimientosInventarioPage({ searchParams }: PagePr
     query = query.lte('created_at', `${endDate}T23:59:59`)
   }
 
-  const { data: rows, error } = await query
+  const { data: rows, count: totalCount, error } = await query
     .order('created_at', { ascending: false })
-    .limit(200)
+    .range(from, to)
 
   if (error) console.error('Error cargando movimientos:', error)
   const movements = (rows as any[]) || []
+  const safeTotal = totalCount ?? 0
 
-  const entries = movements.filter((m: any) => m.quantity > 0)
-  const exits = movements.filter((m: any) => m.quantity < 0)
+  // Lightweight query for full KPIs across the entire filtered period
+  const { data: kpiRows } = await query.select('quantity')
+  const kpiMovements = (kpiRows as any[]) || []
+
+  const entries = kpiMovements.filter((m: any) => m.quantity > 0)
+  const exits = kpiMovements.filter((m: any) => m.quantity < 0)
   const totalIn = entries.reduce((sum: number, m: any) => sum + m.quantity, 0)
   const totalOut = exits.reduce((sum: number, m: any) => sum + Math.abs(m.quantity), 0)
 
@@ -103,7 +114,7 @@ export default async function MovimientosInventarioPage({ searchParams }: PagePr
         </Card>
       </div>
 
-      <MovementsListClient initialMovements={movements} />
+      <MovementsListClient initialMovements={movements} totalCount={safeTotal} currentPage={currentPage} pageSize={PAGE_SIZE} />
     </div>
   )
 }

@@ -8,12 +8,18 @@ interface PageProps {
   searchParams: Promise<{
     startDate?: string
     endDate?: string
+    page?: string
   }>
 }
 
+const PAGE_SIZE = 50
+
 export default async function ComprasPage({ searchParams }: PageProps) {
   const supabase = await createClient()
-  const { startDate, endDate } = await searchParams
+  const { startDate, endDate, page: pageParam } = await searchParams
+  const currentPage = Math.max(0, parseInt(pageParam || '0', 10))
+  const from = currentPage * PAGE_SIZE
+  const to = from + PAGE_SIZE - 1
 
   let query = supabase
     .from('purchases')
@@ -30,8 +36,8 @@ export default async function ComprasPage({ searchParams }: PageProps) {
     query = query.lte('order_date', endDate)
   }
 
-  const [{ data: purchaseRows }, { data: supplierRows }, { data: variantRows }] = await Promise.all([
-    query.order('created_at', { ascending: false }).limit(200),
+  const [{ data: purchaseRows, count: totalCount }, { data: supplierRows }, { data: variantRows }] = await Promise.all([
+    query.order('created_at', { ascending: false }).range(from, to),
     supabase.from('suppliers').select('id, name').eq('is_active', true).order('name'),
     supabase.from('product_variants').select(`
       id,
@@ -46,10 +52,15 @@ export default async function ComprasPage({ searchParams }: PageProps) {
   const purchases = (purchaseRows as any[]) || []
   const suppliers = supplierRows || []
   const variants = variantRows || []
+  const safeTotal = totalCount ?? 0
 
-  const pending = purchases.filter((p: any) => ['draft', 'ordered', 'partial'].includes(p.status))
-  const received = purchases.filter((p: any) => p.status === 'received')
-  const totalValue = purchases.reduce((sum: number, p: any) => {
+  // Lightweight query for full KPIs across the entire filtered period
+  const { data: kpiRows } = await query.select('status, purchase_items(quantity_ordered, unit_cost)')
+  const kpiPurchases = (kpiRows as any[]) || []
+
+  const pending = kpiPurchases.filter((p: any) => ['draft', 'ordered', 'partial'].includes(p.status))
+  const received = kpiPurchases.filter((p: any) => p.status === 'received')
+  const totalValue = kpiPurchases.reduce((sum: number, p: any) => {
     const items = p.purchase_items || []
     return sum + items.reduce((s: number, i: any) => s + i.quantity_ordered * i.unit_cost, 0)
   }, 0)
@@ -119,7 +130,7 @@ export default async function ComprasPage({ searchParams }: PageProps) {
         </Card>
       </div>
 
-      <PurchasesListClient initialPurchases={purchases} />
+      <PurchasesListClient initialPurchases={purchases} totalCount={safeTotal} currentPage={currentPage} pageSize={PAGE_SIZE} />
     </div>
   )
 }

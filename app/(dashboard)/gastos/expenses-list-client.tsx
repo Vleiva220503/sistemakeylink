@@ -21,9 +21,10 @@ import {
 } from '@/components/ui/alert-dialog'
 import { formatCurrency, cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { cancelExpense } from '@/app/actions/crud'
 import { ExpenseForm } from './expense-form'
+import { PaginationControls } from '@/components/shared/pagination-controls'
 
 interface Expense {
   id: string
@@ -45,6 +46,9 @@ interface ExpenseCategory {
 interface ExpensesListClientProps {
   initialExpenses: Expense[]
   categories: ExpenseCategory[]
+  totalCount: number
+  currentPage: number
+  pageSize: number
 }
 
 function CancelButton({ expense }: { expense: Expense }) {
@@ -126,12 +130,21 @@ function CancelButton({ expense }: { expense: Expense }) {
   )
 }
 
-export function ExpensesListClient({ initialExpenses, categories }: ExpensesListClientProps) {
+export function ExpensesListClient({ initialExpenses, categories, totalCount, currentPage, pageSize }: ExpensesListClientProps) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'cancelled'>('all')
   const [dateStart, setDateStart] = useState('')
   const [dateEnd, setDateEnd] = useState('')
+
+  function handlePageChange(page: number) {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('page', String(page))
+    router.push(`${pathname}?${params.toString()}`)
+  }
 
   const filteredExpenses = initialExpenses.filter((e) => {
     const searchLower = search.toLowerCase()
@@ -342,6 +355,12 @@ export function ExpensesListClient({ initialExpenses, categories }: ExpensesList
             </div>
           </>
         )}
+        <PaginationControls
+          currentPage={currentPage}
+          totalCount={totalCount}
+          pageSize={pageSize}
+          onPageChange={handlePageChange}
+        />
       </CardContent>
     </Card>
   )

@@ -19,8 +19,8 @@ export default async function ProductosPage() {
       *,
       categories(id, name, slug, description),
       brands(id, name, slug, logo_url),
-      product_images(*),
-      product_variants(*)
+      product_images(url, is_primary),
+      product_variants(id, sku, size, color, quality, price_override, cost, stock_quantity, stock_reorder_point, is_active)
     `)
     .order('created_at', { ascending: false })
 
