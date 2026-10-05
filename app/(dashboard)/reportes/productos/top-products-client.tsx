@@ -9,6 +9,8 @@ import { Package, Award, ArrowDownAZ, Search, RotateCcw, Calendar, DollarSign } 
 import { formatCurrency } from '@/lib/utils'
 import { ExportButton } from '@/components/shared/export-button'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { MonthFilter } from '@/components/shared/month-filter'
+import { monthName } from '@/lib/month-filter'
 import {
   BarChart,
   Bar,
@@ -48,6 +50,8 @@ interface TopProductsReportClientProps {
   brands: Brand[]
   startDate: string
   endDate: string
+  year: number
+  month: number
 }
 
 export function TopProductsReportClient({
@@ -56,13 +60,13 @@ export function TopProductsReportClient({
   brands,
   startDate,
   endDate,
+  year,
+  month,
 }: TopProductsReportClientProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  const [dateStart, setDateStart] = useState(startDate)
-  const [dateEnd, setDateEnd] = useState(endDate)
 
   const [categoryFilter, setCategoryFilter] = useState('')
   const [brandFilter, setBrandFilter] = useState('')
@@ -87,20 +91,10 @@ export function TopProductsReportClient({
     }
   }, [])
 
-  // Sync date changes with URL to fetch new server-side data
-  const handleDateChange = (start: string, end: string) => {
-    const params = new URLSearchParams(searchParams.toString())
-    params.set('startDate', start)
-    params.set('endDate', end)
-    router.push(`${pathname}?${params.toString()}`)
-  }
-
   const hasFilters =
     categoryFilter ||
     brandFilter ||
-    searchQuery ||
-    dateStart !== startDate ||
-    dateEnd !== endDate
+    !!searchQuery
 
   const filteredData = useMemo(() => {
     let result = [...initialData]
@@ -148,11 +142,6 @@ export function TopProductsReportClient({
     setSearchQuery('')
     setCategoryFilter('')
     setBrandFilter('')
-    const defaultStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-    const defaultEnd = new Date().toISOString().split('T')[0]
-    setDateStart(defaultStart)
-    setDateEnd(defaultEnd)
-    handleDateChange(defaultStart, defaultEnd)
   }
 
   const handleExportExcel = async () => {
@@ -188,7 +177,7 @@ export function TopProductsReportClient({
       monto: item.revenue,
     }))
 
-    const dateRange = `Desde ${dateStart} hasta ${dateEnd}`
+    const dateRange = `${monthName(month)} ${year}`
 
     await exportTopProductsPDF(rows, { dateRange })
   }
@@ -207,6 +196,9 @@ export function TopProductsReportClient({
           <ExportButton onExportExcel={handleExportExcel} onExportPDF={handleExportPDF} />
         </div>
       </div>
+
+      {/* Month navigation */}
+      <MonthFilter year={year} month={month} />
 
       {/* Aggregated totals */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -295,33 +287,6 @@ export function TopProductsReportClient({
       {/* Filters form */}
       <div className="bg-card border border-border p-4 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-          {/* Date range inputs */}
-          <div className="md:col-span-2 space-y-1.5">
-            <label className="text-xs font-bold font-mono text-muted-foreground uppercase tracking-wider">Desde</label>
-            <Input
-              type="date"
-              className="h-10 text-sm bg-background border-border"
-              value={dateStart}
-              onChange={(e) => {
-                setDateStart(e.target.value)
-                if (e.target.value && dateEnd) handleDateChange(e.target.value, dateEnd)
-              }}
-            />
-          </div>
-
-          <div className="md:col-span-2 space-y-1.5">
-            <label className="text-xs font-bold font-mono text-muted-foreground uppercase tracking-wider">Hasta</label>
-            <Input
-              type="date"
-              className="h-10 text-sm bg-background border-border"
-              value={dateEnd}
-              onChange={(e) => {
-                setDateEnd(e.target.value)
-                if (dateStart && e.target.value) handleDateChange(dateStart, e.target.value)
-              }}
-            />
-          </div>
-
           {/* Search bar */}
           <div className="md:col-span-4 space-y-1.5">
             <label className="text-xs font-bold font-mono text-muted-foreground uppercase tracking-wider">Buscar Producto</label>

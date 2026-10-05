@@ -1,56 +1,56 @@
 import { createClient } from '@/lib/supabase/server'
 import { TopProductsReportClient } from './top-products-client'
+import { parseMonthParams, getMonthRange } from '@/lib/month-filter'
+
+export const dynamic = 'force-dynamic'
 
 interface Props {
   searchParams: Promise<{
-    startDate?: string
-    endDate?: string
+    year?: string
+    month?: string
+    view?: string
   }>
 }
 
 export default async function ReporteProductosPopularesPage({ searchParams }: Props) {
-  const { startDate, endDate } = await searchParams
+  const params = await searchParams
+  const { year, month } = parseMonthParams(params)
+  const { startISO, endISO, startDate, endDate } = getMonthRange(year, month)
   const supabase = await createClient()
 
-  // Calculate default dates (past 30 days)
-  const todayStr = new Date().toISOString().split('T')[0]
-  const defaultStartDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  // Parallelizar: items del mes + categorías + marcas
+  const [itemsResult, categoriesResult, brandsResult] = await Promise.all([
+    supabase
+      .from('sale_items')
+      .select(`
+        id, quantity, unit_price, total,
+        variant:product_variants(
+          id, sku,
+          product:products(
+            id, name, category_id, brand_id,
+            category:categories(name, description),
+            brand:brands(name)
+          )
+        ),
+        sale:sales!inner(created_at, status)
+      `)
+      .eq('sale.status', 'completed')
+      .gte('sale.created_at', startISO)
+      .lte('sale.created_at', endISO),
+    supabase.from('categories').select('id, name, description').order('name'),
+    supabase.from('brands').select('id, name').order('name'),
+  ])
 
-  const finalStartDate = startDate || defaultStartDate
-  const finalEndDate = endDate || todayStr
+  const items = itemsResult.data || []
+  const categories = categoriesResult.data || []
+  const brands = brandsResult.data || []
 
-  // Load completed sale items in the date range
-  const { data: rows, error: itemsErr } = await supabase
-    .from('sale_items')
-    .select(`
-      id, quantity, unit_price, total,
-      variant:product_variants(
-        id, sku,
-        product:products(
-          id, name, category_id, brand_id,
-          category:categories(name, description),
-          brand:brands(name)
-        )
-      ),
-      sale:sales!inner(created_at, status)
-    `)
-    .eq('sale.status', 'completed')
-    .gte('sale.created_at', `${finalStartDate}T00:00:00`)
-    .lte('sale.created_at', `${finalEndDate}T23:59:59`)
-
-  if (itemsErr) {
-    console.error('Error fetching top products items:', itemsErr)
-  }
-
-  const items = rows || []
-
-  // Group items by product in JS
+  // Group items by product
   const productMap: Record<string, any> = {}
   items.forEach((item: any) => {
     const product = item.variant?.product
     if (!product) return
     const productId = product.id
-
     if (!productMap[productId]) {
       productMap[productId] = {
         productId,
@@ -65,34 +65,21 @@ export default async function ReporteProductosPopularesPage({ searchParams }: Pr
         revenue: 0,
       }
     }
-
     productMap[productId].unitsSold += item.quantity
     productMap[productId].revenue += Number(item.total)
   })
 
   const sortedProducts = Object.values(productMap).sort((a: any, b: any) => b.revenue - a.revenue)
 
-  // Fetch categories
-  const { data: categoriesData } = await supabase
-    .from('categories')
-    .select('id, name, description')
-    .order('name')
-  const categories = categoriesData || []
-
-  // Fetch brands
-  const { data: brandsData } = await supabase
-    .from('brands')
-    .select('id, name')
-    .order('name')
-  const brands = brandsData || []
-
   return (
     <TopProductsReportClient
       initialData={sortedProducts}
       categories={categories}
       brands={brands}
-      startDate={finalStartDate}
-      endDate={finalEndDate}
+      startDate={startDate}
+      endDate={endDate}
+      year={year}
+      month={month}
     />
   )
 }

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { MobileSidebar } from '@/components/layout/mobile-sidebar'
+import { Suspense } from 'react'
 
 export default async function DashboardLayout({
   children,
@@ -62,7 +63,9 @@ export default async function DashboardLayout({
         
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 md:p-8">
           <div className="mx-auto max-w-7xl w-full min-w-0">
-            {children}
+            <Suspense fallback={null}>
+              {children}
+            </Suspense>
           </div>
         </main>
       </div>

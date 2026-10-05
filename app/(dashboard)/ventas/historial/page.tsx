@@ -3,21 +3,26 @@ import { ShoppingCart, CheckCircle, Clock, DollarSign } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { formatCurrency } from '@/lib/utils'
 import { SalesListClient } from './sales-list-client'
+import { parseMonthParams, getMonthRange, getPrevMonth, monthName } from '@/lib/month-filter'
+
+export const dynamic = 'force-dynamic'
 
 const PAGE_SIZE = 50
 
 interface PageProps {
   searchParams: Promise<{
-    startDate?: string
-    endDate?: string
+    year?: string
+    month?: string
     page?: string
   }>
 }
 
 export default async function HistorialVentasPage({ searchParams }: PageProps) {
   const supabase = await createClient()
-  const { startDate, endDate, page: pageParam } = await searchParams
-  const currentPage = Math.max(0, parseInt(pageParam || '0', 10))
+  const params = await searchParams
+  const { year, month } = parseMonthParams(params)
+  const { startISO, endISO } = getMonthRange(year, month)
+  const currentPage = Math.max(0, parseInt(params.page || '0', 10))
 
   // Get active session user role
   const { data: { user } } = await supabase.auth.getUser()
@@ -31,14 +36,12 @@ export default async function HistorialVentasPage({ searchParams }: PageProps) {
     isAdmin = (profile as any)?.role === 'admin'
   }
 
-  // Build base query (reused for count + data)
+  // Build base query filtered to the selected month
   function buildQuery(q: ReturnType<typeof supabase.from>) {
-    if (startDate) q = (q as any).gte('created_at', `${startDate}T00:00:00-06:00`)
-    if (endDate) q = (q as any).lte('created_at', `${endDate}T23:59:59-06:00`)
-    return q
+    return (q as any).gte('created_at', startISO).lte('created_at', endISO)
   }
 
-  // 1. Get total count for this filter combination
+  // 1. Total count for pagination
   const { count: totalCount } = await buildQuery(
     supabase.from('sales').select('*', { count: 'exact', head: true }) as any
   ) as any
@@ -47,7 +50,7 @@ export default async function HistorialVentasPage({ searchParams }: PageProps) {
   const from = currentPage * PAGE_SIZE
   const to = from + PAGE_SIZE - 1
 
-  // 2. Get the current page of data
+  // 2. Page data
   const { data: rows, error } = await buildQuery(
     supabase.from('sales').select(`
       id, sale_number, status, subtotal, discount_amount, delivery_amount, delivery_type, total, amount_paid, amount_pending,
@@ -63,7 +66,7 @@ export default async function HistorialVentasPage({ searchParams }: PageProps) {
   if (error) console.error('Error cargando historial:', error)
   const sales = (rows as any[]) || []
 
-  // 3. Get lightweight data for full KPIs across the entire filter (mimicking previous behavior)
+  // 3. KPIs for the current month
   const { data: kpiRows } = await buildQuery(
     supabase.from('sales').select('status, total, amount_pending') as any
   )
@@ -72,11 +75,38 @@ export default async function HistorialVentasPage({ searchParams }: PageProps) {
   const totalRevenue = completedSales.reduce((sum: number, s: any) => sum + Number(s.total), 0)
   const pendingAmount = kpiSales.reduce((sum: number, s: any) => sum + Number(s.amount_pending), 0)
 
+  // 4. Prev month KPIs (for comparison)
+  const { year: py, month: pm } = getPrevMonth(year, month)
+  const { startISO: prevStart, endISO: prevEnd } = getMonthRange(py, pm)
+  const { data: prevKpiRows } = await (supabase.from('sales') as any)
+    .select('status, total')
+    .gte('created_at', prevStart)
+    .lte('created_at', prevEnd)
+  const prevKpiSales = (prevKpiRows as any[]) || []
+  const prevRevenue = prevKpiSales
+    .filter((s: any) => s.status === 'completed')
+    .reduce((sum: number, s: any) => sum + Number(s.total), 0)
+
+  // 5. Prev month full sales (for WeeklyBreakdown)
+  const { data: prevSalesRows } = await (supabase.from('sales') as any)
+    .select('created_at, total, status')
+    .gte('created_at', prevStart)
+    .lte('created_at', prevEnd)
+  const prevSales = (prevSalesRows as any[]) || []
+
+  // 6. Current month full sales (for WeeklyBreakdown — reuse kpiRows but need created_at)
+  const { data: currentSalesRows } = await buildQuery(
+    supabase.from('sales').select('created_at, total, status') as any
+  )
+  const currentSales = (currentSalesRows as any[]) || []
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-display font-bold tracking-tight">Historial de Ventas</h1>
-        <p className="text-muted-foreground">Registro completo de todas las transacciones</p>
+        <p className="text-muted-foreground">
+          Registro de transacciones — {monthName(month)} {year}
+        </p>
       </div>
 
       {/* KPIs */}
@@ -88,7 +118,7 @@ export default async function HistorialVentasPage({ searchParams }: PageProps) {
                 <ShoppingCart className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <p className="text-xl font-bold">{sales.length}</p>
+                <p className="text-xl font-bold">{safeTotal}</p>
                 <p className="text-xs text-muted-foreground">Total Ventas</p>
               </div>
             </div>
@@ -135,7 +165,19 @@ export default async function HistorialVentasPage({ searchParams }: PageProps) {
         </Card>
       </div>
 
-      <SalesListClient initialSales={sales} isAdmin={isAdmin} totalCount={safeTotal} currentPage={currentPage} pageSize={PAGE_SIZE} />
+      <SalesListClient
+        initialSales={sales}
+        isAdmin={isAdmin}
+        totalCount={safeTotal}
+        currentPage={currentPage}
+        pageSize={PAGE_SIZE}
+        year={year}
+        month={month}
+        currentMonthTotal={totalRevenue}
+        prevMonthTotal={prevRevenue}
+        currentMonthSales={currentSales}
+        prevMonthSales={prevSales}
+      />
     </div>
   )
 }

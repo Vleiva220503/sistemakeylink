@@ -3,15 +3,26 @@ import { DollarSign, TrendingUp, TrendingDown, PieChart } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatCurrency } from '@/lib/utils'
+import { parseMonthParams, getMonthRange, getPrevMonth, monthName } from '@/lib/month-filter'
+import { MonthFilter } from '@/components/shared/month-filter'
+import { MonthComparison } from '@/components/shared/month-comparison'
 
-export default async function ReporteRentabilidadPage() {
+export const dynamic = 'force-dynamic'
+
+interface Props {
+  searchParams: Promise<{
+    year?: string
+    month?: string
+  }>
+}
+
+export default async function ReporteRentabilidadPage({ searchParams }: Props) {
+  const params = await searchParams
+  const { year, month } = parseMonthParams(params)
+  const { startDate: firstDayOfMonth, endDate: lastDayOfMonth } = getMonthRange(year, month)
   const supabase = await createClient()
 
-  // Define dates for profitability RPC (from start of current year/month to today)
-  const today = new Date().toISOString().split('T')[0]
-  const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
-
-  // Load all completed sales with sale_items in date range
+  // Current month: completed sales with sale_items
   const { data: salesRows } = await (supabase as any)
     .from('sales')
     .select(`
@@ -24,19 +35,40 @@ export default async function ReporteRentabilidadPage() {
     `)
     .eq('status', 'completed')
     .gte('created_at', `${firstDayOfMonth}T00:00:00`)
-    .lte('created_at', `${today}T23:59:59`)
+    .lte('created_at', `${lastDayOfMonth}T23:59:59`)
 
-  // Load expenses in date range
+  // Current month: expenses
   const { data: expensesRows } = await (supabase as any)
     .from('expenses')
     .select('amount')
+    .eq('is_cancelled', false)
     .gte('expense_date', firstDayOfMonth)
-    .lte('expense_date', today)
+    .lte('expense_date', lastDayOfMonth)
+
+  // Prev month: for comparison
+  const { year: py, month: pm } = getPrevMonth(year, month)
+  const { startDate: prevFirst, endDate: prevLast } = getMonthRange(py, pm)
+
+  const { data: prevSalesRows } = await (supabase as any)
+    .from('sales')
+    .select('total')
+    .eq('status', 'completed')
+    .gte('created_at', `${prevFirst}T00:00:00`)
+    .lte('created_at', `${prevLast}T23:59:59`)
+
+  const { data: prevExpensesRows } = await (supabase as any)
+    .from('expenses')
+    .select('amount')
+    .eq('is_cancelled', false)
+    .gte('expense_date', prevFirst)
+    .lte('expense_date', prevLast)
 
   const salesList = (salesRows as any[]) || []
   const expensesList = (expensesRows as any[]) || []
+  const prevSalesList = (prevSalesRows as any[]) || []
+  const prevExpensesList = (prevExpensesRows as any[]) || []
 
-  // 1. Gross Sales = Sum of (unit_price * quantity) for all items in completed sales
+  // 1. Gross Sales
   const grossSales = salesList.reduce((sum, s) => {
     const itemsGross = s.sale_items?.reduce((itemSum: number, item: any) => {
       return itemSum + Number(item.unit_price) * item.quantity
@@ -44,7 +76,7 @@ export default async function ReporteRentabilidadPage() {
     return sum + (itemsGross > 0 ? itemsGross : Number(s.subtotal))
   }, 0)
 
-  // 2. Discounts = Sum of item line discounts + header discount_amount
+  // 2. Discounts
   const discounts = salesList.reduce((sum, s) => {
     const itemsDiscount = s.sale_items?.reduce((itemSum: number, item: any) => {
       return itemSum + Number(item.discount_amount ?? 0)
@@ -54,10 +86,10 @@ export default async function ReporteRentabilidadPage() {
     return sum + effectiveSaleDiscount
   }, 0)
 
-  // 3. Net Sales = Sum of sales.total (or Gross - Discounts + Delivery)
+  // 3. Net Sales
   const netSales = salesList.reduce((sum, s) => sum + Number(s.total), 0)
 
-  // 4. COGS = Sum of (unit_cost * quantity)
+  // 4. COGS
   const cogs = salesList.reduce((sum, s) => {
     const itemsCogs = s.sale_items?.reduce((itemSum: number, item: any) => {
       return itemSum + Number(item.unit_cost ?? 0) * item.quantity
@@ -72,14 +104,33 @@ export default async function ReporteRentabilidadPage() {
   const netProfit = netSales - cogs - expenses
   const profitMargin = netSales > 0 ? (netProfit / netSales) * 100 : 0
 
+  // Prev month calculations
+  const prevNetSales = prevSalesList.reduce((sum, s) => sum + Number(s.total), 0)
+  const prevExpenses = prevExpensesList.reduce((sum, e) => sum + Number(e.amount), 0)
+  const prevNetProfit = prevNetSales - prevExpenses // simplified for comparison
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-display font-bold tracking-tight">Reporte de Rentabilidad</h1>
-        <p className="text-muted-foreground font-mono text-xs">
-          Rango: <span className="text-primary">{firstDayOfMonth}</span> al <span className="text-primary">{today}</span>
-        </p>
+      {/* Header with MonthFilter */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-display font-bold tracking-tight">Reporte de Rentabilidad</h1>
+          <p className="text-muted-foreground font-mono text-xs">
+            {monthName(month)} {year} · {firstDayOfMonth} → {lastDayOfMonth}
+          </p>
+        </div>
+        <MonthFilter year={year} month={month} />
       </div>
+
+      {/* Comparison vs prev month */}
+      <MonthComparison
+        currentTotal={netProfit}
+        prevTotal={prevNetProfit}
+        year={year}
+        month={month}
+        label="Ganancia Neta"
+        higherIsBad={false}
+      />
 
       {/* Overview KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
@@ -142,7 +193,7 @@ export default async function ReporteRentabilidadPage() {
       {/* Summary Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Resumen Financiero Mensual</CardTitle>
+          <CardTitle>Resumen Financiero — {monthName(month)} {year}</CardTitle>
         </CardHeader>
         <CardContent>
           {/* Mobile Card View (< 768px) */}

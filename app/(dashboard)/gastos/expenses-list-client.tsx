@@ -5,7 +5,6 @@ import { Receipt, Calendar, Search, Ban, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import {
@@ -25,6 +24,8 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { cancelExpense } from '@/app/actions/crud'
 import { ExpenseForm } from './expense-form'
 import { PaginationControls } from '@/components/shared/pagination-controls'
+import { MonthFilter } from '@/components/shared/month-filter'
+import { MonthComparison } from '@/components/shared/month-comparison'
 
 interface Expense {
   id: string
@@ -49,6 +50,10 @@ interface ExpensesListClientProps {
   totalCount: number
   currentPage: number
   pageSize: number
+  year: number
+  month: number
+  currentMonthTotal: number
+  prevMonthTotal: number
 }
 
 function CancelButton({ expense }: { expense: Expense }) {
@@ -79,11 +84,9 @@ function CancelButton({ expense }: { expense: Expense }) {
     <AlertDialog>
       <AlertDialogTrigger
         render={
-          <Button
-            variant="ghost"
-            size="icon"
+          <button
             disabled={isPending}
-            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            className="inline-flex items-center justify-center w-8 h-8 text-destructive hover:bg-destructive/10 hover:text-destructive rounded border-0 bg-transparent cursor-pointer disabled:opacity-50"
             aria-label={`Anular gasto "${expense.description}"`}
             title="Anular gasto"
           >
@@ -92,7 +95,7 @@ function CancelButton({ expense }: { expense: Expense }) {
             ) : (
               <Ban className="h-4 w-4" />
             )}
-          </Button>
+          </button>
         }
       />
       <AlertDialogContent>
@@ -130,15 +133,23 @@ function CancelButton({ expense }: { expense: Expense }) {
   )
 }
 
-export function ExpensesListClient({ initialExpenses, categories, totalCount, currentPage, pageSize }: ExpensesListClientProps) {
+export function ExpensesListClient({
+  initialExpenses,
+  categories,
+  totalCount,
+  currentPage,
+  pageSize,
+  year,
+  month,
+  currentMonthTotal,
+  prevMonthTotal,
+}: ExpensesListClientProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'cancelled'>('all')
-  const [dateStart, setDateStart] = useState('')
-  const [dateEnd, setDateEnd] = useState('')
 
   function handlePageChange(page: number) {
     const params = new URLSearchParams(searchParams.toString())
@@ -155,213 +166,206 @@ export function ExpensesListClient({ initialExpenses, categories, totalCount, cu
       (statusFilter === 'active' && !e.is_cancelled) ||
       (statusFilter === 'cancelled' && e.is_cancelled)
 
-    let matchesDate = true
-    if (dateStart) matchesDate = matchesDate && e.expense_date >= dateStart
-    if (dateEnd) matchesDate = matchesDate && e.expense_date <= dateEnd
-
-    return matchesSearch && matchesCategory && matchesStatus && matchesDate
+    return matchesSearch && matchesCategory && matchesStatus
   })
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <CardTitle>Registro de Gastos ({filteredExpenses.length})</CardTitle>
-          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto flex-wrap">
-            {/* Search Input */}
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Buscar por descripción..."
-                className="pl-8"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            {/* Date Inputs */}
-            <div className="flex items-center gap-1.5 w-full sm:w-auto">
-              <Input
-                type="date"
-                className="w-full sm:w-32 h-10 text-xs"
-                value={dateStart}
-                onChange={(e) => setDateStart(e.target.value)}
-              />
-              <span className="text-xs text-muted-foreground shrink-0">a</span>
-              <Input
-                type="date"
-                className="w-full sm:w-32 h-10 text-xs"
-                value={dateEnd}
-                onChange={(e) => setDateEnd(e.target.value)}
-              />
-            </div>
-            {/* Category Filter */}
-            <Select value={categoryFilter} onValueChange={(val) => setCategoryFilter(val || 'all')}>
-              <SelectTrigger className="w-full sm:w-44">
-                <SelectValue placeholder="Categoría" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas las categorías</SelectItem>
-                {categories.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {/* Status Filter */}
-            <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as any)}>
-              <SelectTrigger className="w-full sm:w-36">
-                <SelectValue placeholder="Estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="active">Activos</SelectItem>
-                <SelectItem value="cancelled">Anulados</SelectItem>
-              </SelectContent>
-            </Select>
-            {(search || categoryFilter !== 'all' || statusFilter !== 'all' || dateStart || dateEnd) && (
-              <button
-                onClick={() => {
-                  setSearch('')
-                  setCategoryFilter('all')
-                  setStatusFilter('all')
-                  setDateStart('')
-                  setDateEnd('')
-                }}
-                className="h-10 px-3 text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground border border-border rounded-md bg-secondary/20 shrink-0 cursor-pointer"
-              >
-                Limpiar
-              </button>
-            )}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {filteredExpenses.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 text-muted-foreground gap-3">
-            <Receipt className="h-10 w-10 opacity-20" />
-            <p>
-              {search || categoryFilter !== 'all' || statusFilter !== 'all' || dateStart || dateEnd
-                ? 'No se encontraron gastos con los filtros aplicados'
-                : 'No hay gastos registrados'}
-            </p>
-          </div>
-        ) : (
-          <>
-            {/* Mobile Card View (< 768px) */}
-            <div className="block md:hidden space-y-3">
-              {filteredExpenses.map((e) => (
-                <div
-                  key={e.id}
-                  className={cn(
-                    'bg-background border border-border p-3.5 space-y-2.5 text-xs shadow-sm',
-                    e.is_cancelled && 'opacity-50 border-destructive/30 bg-destructive/5'
-                  )}
+    <div className="space-y-4">
+      {/* Month navigation */}
+      <MonthFilter year={year} month={month} />
+
+      {/* Comparison */}
+      <MonthComparison
+        currentTotal={currentMonthTotal}
+        prevTotal={prevMonthTotal}
+        year={year}
+        month={month}
+        label="Gastos Operativos"
+        higherIsBad
+      />
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <CardTitle>Registro de Gastos ({filteredExpenses.length})</CardTitle>
+            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto flex-wrap">
+              {/* Search Input */}
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Buscar por descripción..."
+                  className="pl-8"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              {/* Category Filter */}
+              <Select value={categoryFilter} onValueChange={(val) => setCategoryFilter(val || 'all')}>
+                <SelectTrigger className="w-full sm:w-44">
+                  <SelectValue placeholder="Categoría" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las categorías</SelectItem>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {/* Status Filter */}
+              <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as any)}>
+                <SelectTrigger className="w-full sm:w-36">
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="active">Activos</SelectItem>
+                  <SelectItem value="cancelled">Anulados</SelectItem>
+                </SelectContent>
+              </Select>
+              {(search || categoryFilter !== 'all' || statusFilter !== 'all') && (
+                <button
+                  onClick={() => {
+                    setSearch('')
+                    setCategoryFilter('all')
+                    setStatusFilter('all')
+                  }}
+                  className="h-10 px-3 text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground border border-border rounded-md bg-secondary/20 shrink-0 cursor-pointer"
                 >
-                  <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2">
-                    <div>
-                      <p className={cn('font-bold text-foreground text-sm', e.is_cancelled && 'line-through')}>
-                        {e.description}
-                      </p>
-                      <p className="text-muted-foreground font-mono text-[11px]">
-                        {new Date(e.expense_date).toLocaleDateString('es', {
-                          day: '2-digit', month: 'short', year: 'numeric',
-                        })}
-                      </p>
-                    </div>
-                    <span className={cn('font-mono font-bold text-sm', e.is_cancelled ? 'line-through text-muted-foreground' : 'text-destructive')}>
-                      {formatCurrency(Number(e.amount))}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      {e.category ? (
-                        <Badge variant="secondary">{e.category.name}</Badge>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                      {e.is_cancelled && (
-                        <Badge variant="destructive" className="text-[10px]">Anulado</Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {!e.is_cancelled && <ExpenseForm expense={e} categories={categories} />}
-                      <CancelButton expense={e} />
-                    </div>
-                  </div>
-                </div>
-              ))}
+                  Limpiar
+                </button>
+              )}
             </div>
-
-            {/* Desktop Table View (>= 768px) */}
-            <div className="hidden md:block">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="whitespace-nowrap">Fecha</TableHead>
-                    <TableHead className="whitespace-nowrap">Descripción</TableHead>
-                    <TableHead className="whitespace-nowrap">Categoría</TableHead>
-                    <TableHead className="text-right whitespace-nowrap">Monto</TableHead>
-                    <TableHead className="whitespace-nowrap">Estado</TableHead>
-                    <TableHead className="whitespace-nowrap">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredExpenses.map((e) => (
-                    <TableRow
-                      key={e.id}
-                      className={cn(e.is_cancelled && 'opacity-50 bg-destructive/5')}
-                    >
-                      <TableCell className="whitespace-nowrap">
-                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                          <Calendar className="h-3.5 w-3.5" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          {filteredExpenses.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-48 text-muted-foreground gap-3">
+              <Receipt className="h-10 w-10 opacity-20" />
+              <p>
+                {search || categoryFilter !== 'all' || statusFilter !== 'all'
+                  ? 'No se encontraron gastos con los filtros aplicados'
+                  : 'No hay gastos registrados en este mes'}
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Mobile Card View (< 768px) */}
+              <div className="block md:hidden space-y-3">
+                {filteredExpenses.map((e) => (
+                  <div
+                    key={e.id}
+                    className={cn(
+                      'bg-background border border-border p-3.5 space-y-2.5 text-xs shadow-sm',
+                      e.is_cancelled && 'opacity-50 border-destructive/30 bg-destructive/5'
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2">
+                      <div>
+                        <p className={cn('font-bold text-foreground text-sm', e.is_cancelled && 'line-through')}>
+                          {e.description}
+                        </p>
+                        <p className="text-muted-foreground font-mono text-[11px]">
                           {new Date(e.expense_date).toLocaleDateString('es', {
                             day: '2-digit', month: 'short', year: 'numeric',
                           })}
-                        </div>
-                      </TableCell>
-                      <TableCell className={cn('font-medium whitespace-nowrap', e.is_cancelled && 'line-through text-muted-foreground')}>
-                        {e.description}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">
+                        </p>
+                      </div>
+                      <span className={cn('font-mono font-bold text-sm', e.is_cancelled ? 'line-through text-muted-foreground' : 'text-destructive')}>
+                        {formatCurrency(Number(e.amount))}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
                         {e.category ? (
                           <Badge variant="secondary">{e.category.name}</Badge>
                         ) : (
-                          <span className="text-muted-foreground text-sm">—</span>
+                          <span className="text-muted-foreground">—</span>
                         )}
-                      </TableCell>
-                      <TableCell className={cn('text-right font-bold whitespace-nowrap', e.is_cancelled ? 'line-through text-muted-foreground' : 'text-destructive')}>
-                        {formatCurrency(Number(e.amount))}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        {e.is_cancelled ? (
+                        {e.is_cancelled && (
                           <Badge variant="destructive" className="text-[10px]">Anulado</Badge>
-                        ) : (
-                          <Badge variant="secondary" className="text-[10px]">Activo</Badge>
                         )}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        <div className="flex items-center gap-1">
-                          {!e.is_cancelled && <ExpenseForm expense={e} categories={categories} />}
-                          <CancelButton expense={e} />
-                        </div>
-                      </TableCell>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {!e.is_cancelled && <ExpenseForm expense={e} categories={categories} />}
+                        <CancelButton expense={e} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table View (>= 768px) */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="whitespace-nowrap">Fecha</TableHead>
+                      <TableHead className="whitespace-nowrap">Descripción</TableHead>
+                      <TableHead className="whitespace-nowrap">Categoría</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">Monto</TableHead>
+                      <TableHead className="whitespace-nowrap">Estado</TableHead>
+                      <TableHead className="whitespace-nowrap">Acciones</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </>
-        )}
-        <PaginationControls
-          currentPage={currentPage}
-          totalCount={totalCount}
-          pageSize={pageSize}
-          onPageChange={handlePageChange}
-        />
-      </CardContent>
-    </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredExpenses.map((e) => (
+                      <TableRow
+                        key={e.id}
+                        className={cn(e.is_cancelled && 'opacity-50 bg-destructive/5')}
+                      >
+                        <TableCell className="whitespace-nowrap">
+                          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                            <Calendar className="h-3.5 w-3.5" />
+                            {new Date(e.expense_date).toLocaleDateString('es', {
+                              day: '2-digit', month: 'short', year: 'numeric',
+                            })}
+                          </div>
+                        </TableCell>
+                        <TableCell className={cn('font-medium whitespace-nowrap', e.is_cancelled && 'line-through text-muted-foreground')}>
+                          {e.description}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {e.category ? (
+                            <Badge variant="secondary">{e.category.name}</Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className={cn('text-right font-bold whitespace-nowrap', e.is_cancelled ? 'line-through text-muted-foreground' : 'text-destructive')}>
+                          {formatCurrency(Number(e.amount))}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {e.is_cancelled ? (
+                            <Badge variant="destructive" className="text-[10px]">Anulado</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-[10px]">Activo</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <div className="flex items-center gap-1">
+                            {!e.is_cancelled && <ExpenseForm expense={e} categories={categories} />}
+                            <CancelButton expense={e} />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+          <PaginationControls
+            currentPage={currentPage}
+            totalCount={totalCount}
+            pageSize={pageSize}
+            onPageChange={handlePageChange}
+          />
+        </CardContent>
+      </Card>
+    </div>
   )
 }

@@ -8,7 +8,10 @@ import { Input } from '@/components/ui/input'
 import { DollarSign, ShoppingCart, TrendingUp, Calendar, Search, RotateCcw, User, CreditCard, Truck, PackageCheck, Info } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { ExportButton } from '@/components/shared/export-button'
-import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { MonthFilter } from '@/components/shared/month-filter'
+import { MonthComparison } from '@/components/shared/month-comparison'
+import { WeeklyBreakdown } from '@/components/shared/weekly-breakdown'
+import { monthName } from '@/lib/month-filter'
 import {
   AreaChart,
   Area,
@@ -29,6 +32,10 @@ interface SalesReportClientProps {
   cashiers: Cashier[]
   startDate: string
   endDate: string
+  year: number
+  month: number
+  prevMonthTotal: number
+  prevMonthSales: Array<{ created_at: string; total: number | string; status: string }>
 }
 
 type PaymentFilter = 'all' | 'cash' | 'card'
@@ -40,13 +47,12 @@ export function SalesReportClient({
   cashiers,
   startDate,
   endDate,
+  year,
+  month,
+  prevMonthTotal,
+  prevMonthSales,
 }: SalesReportClientProps) {
-  const router = useRouter()
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
-
-  const [dateStart, setDateStart] = useState(startDate)
-  const [dateEnd, setDateEnd] = useState(endDate)
+  const [showWeekly, setShowWeekly] = useState(false)
 
   const [cashierFilter, setCashierFilter] = useState('')
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('all')
@@ -73,22 +79,12 @@ export function SalesReportClient({
     }
   }, [])
 
-  // Sync date changes with URL to fetch new server-side data
-  const handleDateChange = (start: string, end: string) => {
-    const params = new URLSearchParams(searchParams.toString())
-    params.set('startDate', start)
-    params.set('endDate', end)
-    router.push(`${pathname}?${params.toString()}`)
-  }
-
   const hasFilters =
     cashierFilter ||
     paymentFilter !== 'all' ||
     statusFilter !== 'all' ||
     deliveryFilter !== 'all' ||
-    searchQuery ||
-    dateStart !== startDate ||
-    dateEnd !== endDate
+    !!searchQuery
 
   const filteredSales = useMemo(() => {
     let result = [...initialSales]
@@ -176,49 +172,41 @@ export function SalesReportClient({
     return sum + cardPayments.reduce((pSum: number, p: any) => pSum + Number(p.amount), 0)
   }, 0)
 
-  // Daily Sales trend for Recharts
+  // Daily Sales trend for Recharts — derived from year/month props so it updates on filter change
   const chartData = useMemo(() => {
     const dailyMap: Record<string, number> = {}
-
-    // Initialize date map for empty days in range
-    const start = new Date(startDate + 'T00:00:00')
-    const end = new Date(endDate + 'T00:00:00')
-    const temp = new Date(start)
-    while (temp <= end) {
-      const dateStr = temp.toISOString().split('T')[0]
-      dailyMap[dateStr] = 0
-      temp.setDate(temp.getDate() + 1)
+    const mm = String(month).padStart(2, '0')
+    const lastDay = new Date(year, month, 0).getDate() // last day of month
+    // Initialize all days of the selected month
+    for (let d = 1; d <= lastDay; d++) {
+      const dd = String(d).padStart(2, '0')
+      dailyMap[`${year}-${mm}-${dd}`] = 0
     }
-
-    // Populate data
+    // Populate with actual sales (convert to Nicaragua UTC-6)
     filteredSales.forEach(s => {
       if (s.status === 'completed') {
-        const dateStr = new Date(s.created_at).toISOString().split('T')[0]
+        const nicaMs = new Date(s.created_at).getTime() - 6 * 60 * 60 * 1000
+        const dateStr = new Date(nicaMs).toISOString().split('T')[0]
         if (dailyMap[dateStr] !== undefined) {
-          dailyMap[dateStr] += Number(s.total)
+          const extDel = s.delivery_type === 'external' ? Number(s.delivery_amount || 0) : 0
+          dailyMap[dateStr] += Number(s.total) - extDel
         }
       }
     })
-
     return Object.entries(dailyMap)
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([date, total]) => ({
-        date: new Date(date + 'T00:00:00').toLocaleDateString('es-NI', { day: 'numeric', month: 'short' }),
+        date: new Date(date + 'T12:00:00').toLocaleDateString('es-NI', { day: 'numeric', month: 'short' }),
         Ventas: total,
       }))
-  }, [filteredSales, startDate, endDate])
+  }, [filteredSales, year, month])
 
   const handleResetFilters = () => {
     setSearchQuery('')
     setCashierFilter('')
     setPaymentFilter('all')
     setStatusFilter('all')
-    // Reset date in client and reload URL params
-    const defaultStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-    const defaultEnd = new Date().toISOString().split('T')[0]
-    setDateStart(defaultStart)
-    setDateEnd(defaultEnd)
-    handleDateChange(defaultStart, defaultEnd)
+    setDeliveryFilter('all')
   }
 
   const handleExportExcel = async () => {
@@ -275,7 +263,7 @@ export function SalesReportClient({
       estado: s.status === 'completed' ? 'Completada' : s.status === 'cancelled' ? 'Anulada' : s.status,
     }))
 
-    const dateRange = `Desde ${dateStart} hasta ${dateEnd}`
+    const dateRange = `${monthName(month)} ${year}`
 
     await exportSalesPDF(rows, {
       totalVentas: totalRevenue,
@@ -299,19 +287,47 @@ export function SalesReportClient({
         </div>
       </div>
 
+      {/* Month navigation + comparison + weekly */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <MonthFilter year={year} month={month} />
+          <button
+            onClick={() => setShowWeekly(v => !v)}
+            className="h-9 px-3 text-xs font-mono font-bold uppercase tracking-wider border border-border bg-card hover:bg-secondary transition-colors cursor-pointer shrink-0"
+          >
+            {showWeekly ? 'Ocultar semanas' : 'Ver por semanas'}
+          </button>
+        </div>
+        <MonthComparison
+          currentTotal={totalRevenue}
+          prevTotal={prevMonthTotal}
+          year={year}
+          month={month}
+          label="Ingresos de Ventas"
+        />
+        {showWeekly && (
+          <WeeklyBreakdown
+            year={year}
+            month={month}
+            sales={initialSales}
+            prevSales={prevMonthSales}
+          />
+        )}
+      </div>
+
       {/* Overview stats cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="border-border bg-card">
-          <CardContent className="p-3.5 sm:pt-5 sm:p-6">
-            <div className="flex items-center gap-2.5 sm:gap-3">
-              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <DollarSign className="h-5 w-5 text-primary" />
               </div>
-              <div className="min-w-0">
-                <p className="text-base sm:text-xl font-display font-black text-foreground truncate">{formatCurrency(totalRevenue)}</p>
-                <p className="text-[10px] sm:text-xs text-muted-foreground uppercase font-mono tracking-wider truncate">Ingresos Reales</p>
+              <div>
+                <p className="text-xl font-display font-black text-foreground">{formatCurrency(totalRevenue)}</p>
+                <p className="text-[11px] text-muted-foreground uppercase font-mono tracking-wider">Ingresos Reales</p>
                 {externalDeliveryTotal > 0 && (
-                  <p className="text-[9px] font-mono text-amber-600 truncate">
+                  <p className="text-[10px] font-mono text-amber-600">
                     Excl. {formatCurrency(externalDeliveryTotal)} E.Tercero
                   </p>
                 )}
@@ -321,42 +337,42 @@ export function SalesReportClient({
         </Card>
 
         <Card className="border-border bg-card">
-          <CardContent className="p-3.5 sm:pt-5 sm:p-6">
-            <div className="flex items-center gap-2.5 sm:gap-3">
-              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-success/10 flex items-center justify-center shrink-0">
-                <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 text-success" />
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-success/10 flex items-center justify-center shrink-0">
+                <ShoppingCart className="h-5 w-5 text-success" />
               </div>
-              <div className="min-w-0">
-                <p className="text-base sm:text-xl font-display font-black text-success truncate">{completedSales.length}</p>
-                <p className="text-[10px] sm:text-xs text-muted-foreground uppercase font-mono tracking-wider truncate">Ventas Exitosas</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border bg-card">
-          <CardContent className="p-3.5 sm:pt-5 sm:p-6">
-            <div className="flex items-center gap-2.5 sm:gap-3">
-              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-warning/10 flex items-center justify-center shrink-0">
-                <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-warning" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-base sm:text-xl font-display font-black text-warning truncate">{formatCurrency(avgTicket)}</p>
-                <p className="text-[10px] sm:text-xs text-muted-foreground uppercase font-mono tracking-wider truncate">Ticket Promedio</p>
+              <div>
+                <p className="text-xl font-display font-black text-success">{completedSales.length}</p>
+                <p className="text-[11px] text-muted-foreground uppercase font-mono tracking-wider">Ventas Exitosas</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="border-border bg-card">
-          <CardContent className="p-3.5 sm:pt-5 sm:p-6">
-            <div className="flex items-center gap-2.5 sm:gap-3">
-              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
-                <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-warning/10 flex items-center justify-center shrink-0">
+                <TrendingUp className="h-5 w-5 text-warning" />
               </div>
-              <div className="min-w-0">
-                <p className="text-base sm:text-xl font-display font-black text-destructive truncate">{formatCurrency(totalDiscount)}</p>
-                <p className="text-[10px] sm:text-xs text-muted-foreground uppercase font-mono tracking-wider truncate">Descuentos</p>
+              <div>
+                <p className="text-xl font-display font-black text-warning">{formatCurrency(avgTicket)}</p>
+                <p className="text-[11px] text-muted-foreground uppercase font-mono tracking-wider">Ticket Promedio</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border bg-card">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
+                <DollarSign className="h-5 w-5 text-destructive" />
+              </div>
+              <div>
+                <p className="text-xl font-display font-black text-destructive">{formatCurrency(totalDiscount)}</p>
+                <p className="text-[11px] text-muted-foreground uppercase font-mono tracking-wider">Descuentos</p>
               </div>
             </div>
           </CardContent>
@@ -407,7 +423,7 @@ export function SalesReportClient({
       {/* Payment methods breakdown cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="border-border bg-card">
-          <CardContent className="pt-4 flex items-center justify-between">
+          <CardContent className="p-4 sm:p-5 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center">
                 <User className="h-5 w-5 text-emerald-600" />
@@ -424,7 +440,7 @@ export function SalesReportClient({
         </Card>
 
         <Card className="border-border bg-card">
-          <CardContent className="pt-4 flex items-center justify-between">
+          <CardContent className="p-4 sm:p-5 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-lg bg-indigo-500/10 flex items-center justify-center">
                 <CreditCard className="h-5 w-5 text-indigo-600" />
@@ -501,34 +517,7 @@ export function SalesReportClient({
 
       {/* Filters Form */}
       <div className="bg-card border border-border p-4 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-          {/* Date range inputs */}
-          <div className="md:col-span-2 space-y-1.5">
-            <label className="text-xs font-bold font-mono text-muted-foreground uppercase tracking-wider">Desde</label>
-            <Input
-              type="date"
-              className="h-10 text-sm bg-background border-border"
-              value={dateStart}
-              onChange={(e) => {
-                setDateStart(e.target.value)
-                if (e.target.value && dateEnd) handleDateChange(e.target.value, dateEnd)
-              }}
-            />
-          </div>
-
-          <div className="md:col-span-2 space-y-1.5">
-            <label className="text-xs font-bold font-mono text-muted-foreground uppercase tracking-wider">Hasta</label>
-            <Input
-              type="date"
-              className="h-10 text-sm bg-background border-border"
-              value={dateEnd}
-              onChange={(e) => {
-                setDateEnd(e.target.value)
-                if (dateStart && e.target.value) handleDateChange(dateStart, e.target.value)
-              }}
-            />
-          </div>
-
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-12 gap-3 items-end">
           {/* Text Search */}
           <div className="md:col-span-3 space-y-1.5">
             <label className="text-xs font-bold font-mono text-muted-foreground uppercase tracking-wider">Buscar Venta</label>
@@ -660,10 +649,10 @@ export function SalesReportClient({
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 text-muted-foreground font-mono text-[11px]">
-                      <div>
+                      <div className="truncate">
                         <span className="text-foreground font-semibold">Cliente:</span> {s.customer?.name || 'Cliente General'}
                       </div>
-                      <div>
+                      <div className="truncate">
                         <span className="text-foreground font-semibold">Cajero:</span> {s.cajero?.full_name || 'Cajero'}
                       </div>
                       <div>

@@ -1,23 +1,21 @@
 import { createClient } from '@/lib/supabase/server'
 import { MovementsReportClient } from './movements-report-client'
+import { parseMonthParams, getMonthRange } from '@/lib/month-filter'
+
+export const dynamic = 'force-dynamic'
 
 interface Props {
   searchParams: Promise<{
-    startDate?: string
-    endDate?: string
+    year?: string
+    month?: string
   }>
 }
 
 export default async function ReporteMovimientosInventarioPage({ searchParams }: Props) {
-  const { startDate, endDate } = await searchParams
+  const params = await searchParams
+  const { year, month } = parseMonthParams(params)
+  const { startISO, endISO, startDate, endDate } = getMonthRange(year, month)
   const supabase = await createClient()
-
-  // Calculate default dates (past 30 days)
-  const todayStr = new Date().toISOString().split('T')[0]
-  const defaultStartDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-
-  const finalStartDate = startDate || defaultStartDate
-  const finalEndDate = endDate || todayStr
 
   // Load inventory movements in range
   const { data: movementsRows, error: movementsErr } = await supabase
@@ -31,30 +29,28 @@ export default async function ReporteMovimientosInventarioPage({ searchParams }:
       usuario:profiles!inventory_movements_created_by_fkey(full_name)
     `)
     // Nicaragua es UTC-6 fijo todo el año, sin horario de verano
-    .gte('created_at', `${finalStartDate}T00:00:00-06:00`)
-    .lte('created_at', `${finalEndDate}T23:59:59-06:00`)
+    .gte('created_at', startISO)
+    .lte('created_at', endISO)
     .order('created_at', { ascending: false })
 
-  if (movementsErr) {
-    console.error('Error fetching inventory movements for report:', movementsErr)
-  }
-
+  if (movementsErr) console.error('Error fetching inventory movements for report:', movementsErr)
   const movements = movementsRows || []
 
-  // Load users to filter by
+  // Users for filter dropdown
   const { data: usersData } = await supabase
     .from('profiles')
     .select('id, full_name')
     .order('full_name')
-
   const users = usersData || []
 
   return (
     <MovementsReportClient
       initialMovements={movements}
       users={users}
-      startDate={finalStartDate}
-      endDate={finalEndDate}
+      startDate={startDate}
+      endDate={endDate}
+      year={year}
+      month={month}
     />
   )
 }

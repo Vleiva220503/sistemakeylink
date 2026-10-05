@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { PaginationControls } from '@/components/shared/pagination-controls'
+import { MonthFilter } from '@/components/shared/month-filter'
 
 const MOVEMENT_TYPES: Record<string, { label: string; color: string; icon: any }> = {
   purchase: { label: 'Compra', color: 'text-success', icon: ArrowUpCircle },
@@ -44,39 +45,17 @@ interface MovementsListClientProps {
   totalCount: number
   currentPage: number
   pageSize: number
+  year: number
+  month: number
 }
 
-export function MovementsListClient({ initialMovements, totalCount, currentPage, pageSize }: MovementsListClientProps) {
+export function MovementsListClient({ initialMovements, totalCount, currentPage, pageSize, year, month }: MovementsListClientProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<string>('all')
-
-  // Date range server-side filters
-  const [startDate, setStartDate] = useState(searchParams.get('startDate') || '')
-  const [endDate, setEndDate] = useState(searchParams.get('endDate') || '')
-
-  function handleFilterDates() {
-    const params = new URLSearchParams(searchParams.toString())
-    if (startDate) params.set('startDate', startDate)
-    else params.delete('startDate')
-    if (endDate) params.set('endDate', endDate)
-    else params.delete('endDate')
-    params.delete('page')
-    router.push(`/inventario/movimientos?${params.toString()}`)
-  }
-
-  function handleClearDates() {
-    setStartDate('')
-    setEndDate('')
-    const params = new URLSearchParams(searchParams.toString())
-    params.delete('startDate')
-    params.delete('endDate')
-    params.delete('page')
-    router.push(`/inventario/movimientos?${params.toString()}`)
-  }
 
   function handlePageChange(page: number) {
     const params = new URLSearchParams(searchParams.toString())
@@ -141,34 +120,9 @@ export function MovementsListClient({ initialMovements, totalCount, currentPage,
             </div>
           </div>
 
-          {/* Date range filter server-side */}
-          <div className="flex flex-wrap items-center gap-3 bg-secondary/20 p-3.5 border rounded-lg text-sm">
-            <span className="font-medium text-muted-foreground shrink-0">Filtrar Fecha Movimiento (Server):</span>
-            <div className="flex items-center gap-2">
-              <Input
-                type="date"
-                className="w-36 h-9"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-              <span className="text-muted-foreground">a</span>
-              <Input
-                type="date"
-                className="w-36 h-9"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </div>
-            <div className="flex items-center gap-2 ml-auto sm:ml-0">
-              <Button size="sm" onClick={handleFilterDates}>
-                Aplicar
-              </Button>
-              {(startDate || endDate) && (
-                <Button size="sm" variant="ghost" onClick={handleClearDates}>
-                  Limpiar
-                </Button>
-              )}
-            </div>
+          {/* Month filter */}
+          <div className="flex flex-wrap items-center gap-3 bg-secondary/20 p-3.5 border rounded-lg">
+            <MonthFilter year={year} month={month} />
           </div>
         </div>
       </CardHeader>
@@ -177,9 +131,9 @@ export function MovementsListClient({ initialMovements, totalCount, currentPage,
           <div className="flex flex-col items-center justify-center h-48 text-muted-foreground gap-3">
             <Activity className="h-10 w-10 opacity-20" />
             <p>
-              {search || typeFilter !== 'all' || startDate || endDate
+              {search || typeFilter !== 'all'
                 ? 'No se encontraron movimientos con los filtros aplicados'
-                : 'No hay movimientos registrados'}
+                : 'No hay movimientos registrados en este mes'}
             </p>
           </div>
         ) : (

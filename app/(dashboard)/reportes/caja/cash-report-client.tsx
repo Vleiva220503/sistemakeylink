@@ -9,6 +9,9 @@ import { DollarSign, Search, RotateCcw, Calendar, Landmark, ArrowDownRight, Arro
 import { formatCurrency } from '@/lib/utils'
 import { ExportButton } from '@/components/shared/export-button'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { MonthFilter } from '@/components/shared/month-filter'
+import { MonthComparison } from '@/components/shared/month-comparison'
+import { monthName } from '@/lib/month-filter'
 
 interface CashRegister {
   id: string
@@ -26,6 +29,9 @@ interface CashReportClientProps {
   cashiers: Cashier[]
   startDate: string
   endDate: string
+  year: number
+  month: number
+  prevNetFlow: number
 }
 
 const CASH_MOVEMENT_TYPES_TRANSLATE: Record<string, string> = {
@@ -41,13 +47,14 @@ export function CashReportClient({
   cashiers,
   startDate,
   endDate,
+  year,
+  month,
+  prevNetFlow,
 }: CashReportClientProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  const [dateStart, setDateStart] = useState(startDate)
-  const [dateEnd, setDateEnd] = useState(endDate)
 
   const [registerFilter, setRegisterFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
@@ -55,21 +62,11 @@ export function CashReportClient({
   const [searchQuery, setSearchQuery] = useState('')
   const debouncedSearch = useDebounce(searchQuery, 250)
 
-  // Sync date changes with URL to fetch new server-side data
-  const handleDateChange = (start: string, end: string) => {
-    const params = new URLSearchParams(searchParams.toString())
-    params.set('startDate', start)
-    params.set('endDate', end)
-    router.push(`${pathname}?${params.toString()}`)
-  }
-
   const hasFilters =
     registerFilter ||
     typeFilter ||
     cashierFilter ||
-    searchQuery ||
-    dateStart !== startDate ||
-    dateEnd !== endDate
+    !!searchQuery
 
   const filteredMovements = useMemo(() => {
     let result = [...initialMovements]
@@ -120,11 +117,6 @@ export function CashReportClient({
     setRegisterFilter('')
     setTypeFilter('')
     setCashierFilter('')
-    const defaultStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-    const defaultEnd = new Date().toISOString().split('T')[0]
-    setDateStart(defaultStart)
-    setDateEnd(defaultEnd)
-    handleDateChange(defaultStart, defaultEnd)
   }
 
   const handleExportExcel = async () => {
@@ -161,7 +153,7 @@ export function CashReportClient({
       usuario: m.usuario?.full_name || 'Sistema',
     }))
 
-    const dateRange = `Desde ${dateStart} hasta ${dateEnd}`
+    const dateRange = `${monthName(month)} ${year}`
 
     await exportCashMovementsPDF(rows, { dateRange, netChange: netCashFlow })
   }
@@ -179,6 +171,18 @@ export function CashReportClient({
         <div className="flex items-center gap-3">
           <ExportButton onExportExcel={handleExportExcel} onExportPDF={handleExportPDF} />
         </div>
+      </div>
+
+      {/* Month navigation + comparison */}
+      <div className="flex flex-col gap-4">
+        <MonthFilter year={year} month={month} />
+        <MonthComparison
+          currentTotal={netCashFlow}
+          prevTotal={prevNetFlow}
+          year={year}
+          month={month}
+          label="Flujo Neto de Caja"
+        />
       </div>
 
       {/* Aggregate stats cards */}
@@ -245,33 +249,6 @@ export function CashReportClient({
       {/* Filters form */}
       <div className="bg-card border border-border p-4 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-          {/* Date range */}
-          <div className="md:col-span-2 space-y-1.5">
-            <label className="text-xs font-bold font-mono text-muted-foreground uppercase tracking-wider">Desde</label>
-            <Input
-              type="date"
-              className="h-10 text-sm bg-background border-border"
-              value={dateStart}
-              onChange={(e) => {
-                setDateStart(e.target.value)
-                if (e.target.value && dateEnd) handleDateChange(e.target.value, dateEnd)
-              }}
-            />
-          </div>
-
-          <div className="md:col-span-2 space-y-1.5">
-            <label className="text-xs font-bold font-mono text-muted-foreground uppercase tracking-wider">Hasta</label>
-            <Input
-              type="date"
-              className="h-10 text-sm bg-background border-border"
-              value={dateEnd}
-              onChange={(e) => {
-                setDateEnd(e.target.value)
-                if (dateStart && e.target.value) handleDateChange(dateStart, e.target.value)
-              }}
-            />
-          </div>
-
           {/* Search bar */}
           <div className="md:col-span-3 space-y-1.5">
             <label className="text-xs font-bold font-mono text-muted-foreground uppercase tracking-wider">Buscar Movimiento</label>
