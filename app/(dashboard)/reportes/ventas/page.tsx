@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { SalesReportClient } from './sales-report-client'
 import {
   parseMonthParams, getMonthRange, getPrevMonth,
+  getDayRange, parseDayParam,
   getYearRange, groupAmountsByMonth,
 } from '@/lib/month-filter'
 import { AnnualBreakdown } from '@/components/shared/annual-breakdown'
@@ -13,6 +14,7 @@ interface Props {
   searchParams: Promise<{
     year?: string
     month?: string
+    day?: string
     view?: string
   }>
 }
@@ -67,7 +69,11 @@ export default async function ReporteVentasPage({ searchParams }: Props) {
   }
 
   // ── VISTA MENSUAL (paralelo) ──────────────────────────────────────────────
-  const { startISO, endISO, startDate, endDate } = getMonthRange(year, month)
+  // Filtro de día: si existe y es válido, reemplaza el rango mensual
+  const day = parseDayParam(params, year, month)
+  const { startISO, endISO, startDate, endDate } = day !== null
+    ? getDayRange(year, month, day)
+    : getMonthRange(year, month)
   const { year: py, month: pm } = getPrevMonth(year, month)
   const { startISO: prevStart, endISO: prevEnd } = getMonthRange(py, pm)
 
@@ -110,6 +116,7 @@ export default async function ReporteVentasPage({ searchParams }: Props) {
       endDate={endDate}
       year={year}
       month={month}
+      day={day}
       prevMonthTotal={prevTotal}
       prevMonthSales={prevSales}
     />

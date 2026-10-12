@@ -46,9 +46,11 @@ interface PurchasesListClientProps {
   pageSize: number
   year: number
   month: number
+  /** Día filtrado actualmente (null = todo el mes) */
+  day?: number | null
 }
 
-export function PurchasesListClient({ initialPurchases, totalCount, currentPage, pageSize, year, month }: PurchasesListClientProps) {
+export function PurchasesListClient({ initialPurchases, totalCount, currentPage, pageSize, year, month, day = null }: PurchasesListClientProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -81,8 +83,8 @@ export function PurchasesListClient({ initialPurchases, totalCount, currentPage,
 
   return (
     <div className="space-y-4">
-      {/* Month navigation */}
-      <MonthFilter year={year} month={month} />
+      {/* Month navigation — pasar day para mostrar selector de día */}
+      <MonthFilter year={year} month={month} day={day} />
 
       <Card>
         <CardHeader>
@@ -134,7 +136,9 @@ export function PurchasesListClient({ initialPurchases, totalCount, currentPage,
               <p>
                 {search || statusFilter !== 'all'
                   ? 'No se encontraron compras con los filtros aplicados'
-                  : 'No hay órdenes de compra en este mes'}
+                  : day !== null
+                    ? `No hay órdenes de compra para el día ${day} de este mes`
+                    : 'No hay órdenes de compra en este mes'}
               </p>
             </div>
           ) : (

@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { TopProductsReportClient } from './top-products-client'
-import { parseMonthParams, getMonthRange } from '@/lib/month-filter'
+import { parseMonthParams, getMonthRange, getDayRange, parseDayParam } from '@/lib/month-filter'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,6 +8,7 @@ interface Props {
   searchParams: Promise<{
     year?: string
     month?: string
+    day?: string
     view?: string
   }>
 }
@@ -15,7 +16,11 @@ interface Props {
 export default async function ReporteProductosPopularesPage({ searchParams }: Props) {
   const params = await searchParams
   const { year, month } = parseMonthParams(params)
-  const { startISO, endISO, startDate, endDate } = getMonthRange(year, month)
+  // Filtro de día: sale.created_at es ISO timestamp, usa rango UTC
+  const day = parseDayParam(params, year, month)
+  const { startISO, endISO, startDate, endDate } = day !== null
+    ? getDayRange(year, month, day)
+    : getMonthRange(year, month)
   const supabase = await createClient()
 
   // Parallelizar: items del mes + categorías + marcas
@@ -80,6 +85,7 @@ export default async function ReporteProductosPopularesPage({ searchParams }: Pr
       endDate={endDate}
       year={year}
       month={month}
+      day={day}
     />
   )
 }

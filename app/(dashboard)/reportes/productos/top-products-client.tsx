@@ -52,6 +52,8 @@ interface TopProductsReportClientProps {
   endDate: string
   year: number
   month: number
+  /** Día filtrado actualmente (null = todo el mes) */
+  day?: number | null
 }
 
 export function TopProductsReportClient({
@@ -62,6 +64,7 @@ export function TopProductsReportClient({
   endDate,
   year,
   month,
+  day = null,
 }: TopProductsReportClientProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -197,8 +200,8 @@ export function TopProductsReportClient({
         </div>
       </div>
 
-      {/* Month navigation */}
-      <MonthFilter year={year} month={month} />
+      {/* Month navigation — pasar day para mostrar selector de día */}
+      <MonthFilter year={year} month={month} day={day} />
 
       {/* Aggregated totals */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

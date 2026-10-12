@@ -3,7 +3,7 @@ import { ShoppingBag, Clock, CheckCircle } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { PurchaseForm } from '@/app/(dashboard)/compras/purchase-form'
 import { PurchasesListClient } from './purchases-list-client'
-import { parseMonthParams, getMonthRange, monthName } from '@/lib/month-filter'
+import { parseMonthParams, getMonthRange, getDayRange, parseDayParam, monthName } from '@/lib/month-filter'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,6 +11,7 @@ interface PageProps {
   searchParams: Promise<{
     year?: string
     month?: string
+    day?: string
     page?: string
   }>
 }
@@ -21,7 +22,11 @@ export default async function ComprasPage({ searchParams }: PageProps) {
   const supabase = await createClient()
   const params = await searchParams
   const { year, month } = parseMonthParams(params)
-  const { startDate: startD, endDate: endD } = getMonthRange(year, month)
+  // Filtro de día: order_date es YYYY-MM-DD, rango = mismo día
+  const day = parseDayParam(params, year, month)
+  const { startDate: startD, endDate: endD } = day !== null
+    ? getDayRange(year, month, day)
+    : getMonthRange(year, month)
   const currentPage = Math.max(0, parseInt(params.page || '0', 10))
   const from = currentPage * PAGE_SIZE
   const to = from + PAGE_SIZE - 1
@@ -143,6 +148,7 @@ export default async function ComprasPage({ searchParams }: PageProps) {
         pageSize={PAGE_SIZE}
         year={year}
         month={month}
+        day={day}
       />
     </div>
   )

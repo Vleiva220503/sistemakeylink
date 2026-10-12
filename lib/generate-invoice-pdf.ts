@@ -127,7 +127,7 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<void> {
   y += 8
   const clientName = data.customerName?.trim() || 'Cliente Estándar'
 
-  // Left col: CLIENTE
+  // Left col: CLIENTE (solo nombre)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(7.5)
   doc.setTextColor(...BRAND.navy)
@@ -296,6 +296,16 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<void> {
   doc.setFontSize(7.5)
   doc.setTextColor(...BRAND.textMuted)
   doc.text('No se aceptan devoluciones', pageW / 2, footerY + 2, { align: 'center' })
+
+  // Dirección y teléfono del local — centrados en el pie
+  doc.setFontSize(7)
+  doc.text(
+    'Managua, Cooperativa Parrales Vallejos, Rubenia, 2 cuadras al sur, 25 varas abajo, mano derecha.',
+    pageW / 2,
+    footerY + 7,
+    { align: 'center', maxWidth: contentW }
+  )
+  doc.text('Tel: +505 8567 1838', pageW / 2, footerY + 11.5, { align: 'center' })
 
   // ── 6. SAVE ───────────────────────────────────────────────────────────────
   const filename = `Factura_${String(data.saleNumber).replace(/\//g, '-')}_${

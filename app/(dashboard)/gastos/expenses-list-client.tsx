@@ -52,6 +52,8 @@ interface ExpensesListClientProps {
   pageSize: number
   year: number
   month: number
+  /** Día filtrado actualmente (null = todo el mes) */
+  day?: number | null
   currentMonthTotal: number
   prevMonthTotal: number
 }
@@ -141,6 +143,7 @@ export function ExpensesListClient({
   pageSize,
   year,
   month,
+  day = null,
   currentMonthTotal,
   prevMonthTotal,
 }: ExpensesListClientProps) {
@@ -171,8 +174,8 @@ export function ExpensesListClient({
 
   return (
     <div className="space-y-4">
-      {/* Month navigation */}
-      <MonthFilter year={year} month={month} />
+      {/* Month navigation — pasar day para mostrar selector de día */}
+      <MonthFilter year={year} month={month} day={day} />
 
       {/* Comparison */}
       <MonthComparison
@@ -247,7 +250,9 @@ export function ExpensesListClient({
               <p>
                 {search || categoryFilter !== 'all' || statusFilter !== 'all'
                   ? 'No se encontraron gastos con los filtros aplicados'
-                  : 'No hay gastos registrados en este mes'}
+                  : day !== null
+                    ? `No hay gastos para el día ${day} de este mes`
+                    : 'No hay gastos registrados en este mes'}
               </p>
             </div>
           ) : (

@@ -2,7 +2,10 @@
 
 import { useState, useMemo } from 'react'
 import { useDebounce } from '@/hooks/use-debounce'
-import { Package, AlertTriangle, TrendingDown, Eye, Plus, Search, Filter, RotateCcw, ArrowUpDown } from 'lucide-react'
+import {
+  Package, AlertTriangle, TrendingDown, Plus,
+  Search, RotateCcw, ArrowUpDown, X, ChevronRight,
+} from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -10,12 +13,229 @@ import { formatCurrency, cn } from '@/lib/utils'
 import { AddStockModal } from '@/components/features/inventory/add-stock-modal'
 import { InventoryDetailSheet } from '@/components/features/inventory/inventory-detail-sheet'
 import Link from 'next/link'
-import { buttonVariants } from '@/components/ui/button'
+import { buttonVariants, Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 import { SafeImage } from '@/components/shared/safe-image'
 import { ExportButton } from '@/components/shared/export-button'
 import { resolveProductImage } from '@/lib/resolve-product-image'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+/** Strips common leading prefixes (e.g. "ZAPATOS ") before computing the group letter */
+const PREFIX_RE = /^(ZAPATOS?|ZAPATILLAS?|TENIS|BOTA|SANDALI[AO]S?|MOCASINES?)\s+/i
+
+function getGroupLetter(name: string): string {
+  const stripped = name.replace(PREFIX_RE, '').trim()
+  return stripped[0]?.toUpperCase() || '#'
+}
+
+// ─── Out-of-stock Sheet ──────────────────────────────────────────────────────
+
+interface OutOfStockSheetProps {
+  open: boolean
+  onClose: () => void
+  outOfStock: any[]
+  onSelectProduct: (name: string) => void
+}
+
+const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
+const MAX_VISIBLE = 120 // render cap — buscador reduce esto naturalmente
+
+function OutOfStockSheet({ open, onClose, outOfStock, onSelectProduct }: OutOfStockSheetProps) {
+  const [panelSearch, setPanelSearch] = useState('')
+  const [letterFilter, setLetterFilter] = useState<string>('all')
+  const debouncedPanelSearch = useDebounce(panelSearch, 200)
+
+  // Letters that actually have products
+  const activeLetters = useMemo(() => {
+    const set = new Set<string>()
+    outOfStock.forEach((v: any) => set.add(getGroupLetter(v.product?.name || '')))
+    return set
+  }, [outOfStock])
+
+  // Filtered list
+  const filtered = useMemo(() => {
+    let result = [...outOfStock]
+    if (debouncedPanelSearch.trim()) {
+      const q = debouncedPanelSearch.toLowerCase()
+      result = result.filter((v: any) =>
+        v.product?.name?.toLowerCase().includes(q) ||
+        v.sku?.toLowerCase().includes(q)
+      )
+    }
+    if (letterFilter !== 'all') {
+      result = result.filter((v: any) => getGroupLetter(v.product?.name || '') === letterFilter)
+    }
+    return result.slice(0, MAX_VISIBLE)
+  }, [outOfStock, debouncedPanelSearch, letterFilter])
+
+  function handleSelect(v: any) {
+    onSelectProduct(v.product?.name || v.sku || '')
+    onClose()
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
+      <SheetContent
+        side="right"
+        className="w-full sm:max-w-md p-0 border-l border-border bg-card shadow-2xl flex flex-col overflow-hidden"
+      >
+        {/* Accent top bar — same pattern as InventoryDetailSheet */}
+        <div className="h-1.5 w-full bg-destructive shrink-0" />
+
+        <div className="flex flex-col flex-1 overflow-hidden">
+          {/* Header */}
+          <SheetHeader className="px-5 pt-5 pb-3 shrink-0 space-y-0">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <SheetTitle className="text-base font-display font-black uppercase tracking-tight text-destructive">
+                  Productos agotados
+                  <span className="ml-2 text-sm font-mono font-bold text-destructive/70">
+                    ({outOfStock.length})
+                  </span>
+                </SheetTitle>
+              </div>
+              <button
+                onClick={onClose}
+                className="h-8 w-8 flex items-center justify-center rounded-md border border-border bg-background hover:bg-secondary transition-colors shrink-0"
+                aria-label="Cerrar panel"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </SheetHeader>
+
+          {/* Search */}
+          <div className="px-5 pb-3 shrink-0">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nombre o SKU…"
+                className="pl-9 h-9 text-sm bg-background border-border"
+                value={panelSearch}
+                onChange={(e) => setPanelSearch(e.target.value)}
+              />
+              {panelSearch && (
+                <button
+                  onClick={() => setPanelSearch('')}
+                  className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Limpiar búsqueda"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* A-Z letter filter — horizontal scroll on mobile */}
+          <div className="px-5 pb-3 shrink-0">
+            <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none">
+              {/* "Todas" pill */}
+              <button
+                onClick={() => setLetterFilter('all')}
+                className={cn(
+                  'h-7 px-2.5 text-[11px] font-mono font-bold uppercase shrink-0 transition-colors border',
+                  letterFilter === 'all'
+                    ? 'bg-destructive text-destructive-foreground border-destructive'
+                    : 'bg-background border-border text-muted-foreground hover:bg-secondary'
+                )}
+              >
+                Todas
+              </button>
+              {ALPHABET.map((letter) => {
+                const has = activeLetters.has(letter)
+                const active = letterFilter === letter
+                return (
+                  <button
+                    key={letter}
+                    onClick={() => has && setLetterFilter(active ? 'all' : letter)}
+                    disabled={!has}
+                    className={cn(
+                      'h-7 w-7 text-[11px] font-mono font-bold shrink-0 transition-colors border',
+                      active
+                        ? 'bg-destructive text-destructive-foreground border-destructive'
+                        : has
+                        ? 'bg-background border-border text-foreground hover:bg-secondary cursor-pointer'
+                        : 'bg-background border-border/40 text-muted-foreground/30 cursor-not-allowed'
+                    )}
+                  >
+                    {letter}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Counter */}
+          <div className="px-5 pb-2 shrink-0">
+            <p className="text-[11px] font-mono text-muted-foreground">
+              Mostrando{' '}
+              <span className="font-bold text-foreground">{filtered.length}</span>{' '}
+              de{' '}
+              <span className="font-bold text-foreground">{outOfStock.length}</span>
+            </p>
+          </div>
+
+          {/* Scrollable product list */}
+          <div className="flex-1 overflow-y-auto px-5 pb-5 space-y-2">
+            {filtered.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-32 text-muted-foreground gap-2">
+                <Package className="h-8 w-8 opacity-20" />
+                <p className="text-xs font-mono">No hay resultados para esta búsqueda</p>
+              </div>
+            ) : (
+              filtered.map((v: any) => (
+                <button
+                  key={v.id}
+                  onClick={() => handleSelect(v)}
+                  className="w-full text-left group flex items-center gap-3 p-3 border border-border bg-background hover:border-destructive/50 hover:bg-destructive/5 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-foreground truncate group-hover:text-destructive transition-colors">
+                      {v.product?.name || '—'}
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[11px] font-mono text-muted-foreground">
+                        {v.sku}
+                      </span>
+                      {v.product?.categories?.name && (
+                        <span className="text-[10px] font-mono text-primary/70">
+                          Talla: {v.product.categories.name}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <Badge
+                    variant="destructive"
+                    className="shrink-0 text-[10px] font-mono px-1.5 py-0.5 h-auto"
+                  >
+                    Agotado
+                  </Badge>
+                </button>
+              ))
+            )}
+
+            {/* Cap notice */}
+            {filtered.length === MAX_VISIBLE && outOfStock.length > MAX_VISIBLE && (
+              <p className="text-center text-[11px] font-mono text-muted-foreground pt-2">
+                Usa el buscador para ver más resultados
+              </p>
+            )}
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+// ─── Main component ──────────────────────────────────────────────────────────
 
 interface InventoryClientProps {
   initialVariants: any[]
@@ -24,6 +244,7 @@ interface InventoryClientProps {
 
 export function InventoryClient({ initialVariants, isAdmin = false }: InventoryClientProps) {
   const [selectedVariant, setSelectedVariant] = useState<any | null>(null)
+  const [outOfStockOpen, setOutOfStockOpen] = useState(false)
 
   // Filters state
   const [searchQuery, setSearchQuery] = useState('')
@@ -61,13 +282,11 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
   }, [variants])
 
-  // Filter & Sort Logic
   const debouncedSearch = useDebounce(searchQuery, 250)
 
   const filteredVariants = useMemo(() => {
     let result = [...variants]
 
-    // 1. Text Search (Name, SKU, Barcode)
     if (debouncedSearch.trim()) {
       const q = debouncedSearch.toLowerCase()
       result = result.filter((v: any) =>
@@ -80,17 +299,14 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
       )
     }
 
-    // 2. Category Filter
     if (categoryFilter) {
       result = result.filter((v: any) => v.product?.category_id === categoryFilter)
     }
 
-    // 3. Brand Filter
     if (brandFilter) {
       result = result.filter((v: any) => v.product?.brand_id === brandFilter)
     }
 
-    // 4. Stock Range Filter
     if (stockFilter !== 'all') {
       result = result.filter((v: any) => {
         if (stockFilter === 'out') return v.stock_quantity <= 0
@@ -100,29 +316,20 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
       })
     }
 
-    // 5. Sorting
     result.sort((a: any, b: any) => {
-      if (sortBy === 'name-asc') {
-        return (a.product?.name || '').localeCompare(b.product?.name || '')
-      }
-      if (sortBy === 'name-desc') {
-        return (b.product?.name || '').localeCompare(a.product?.name || '')
-      }
-      if (sortBy === 'stock-desc') {
-        return b.stock_quantity - a.stock_quantity
-      }
-      if (sortBy === 'stock-asc') {
-        return a.stock_quantity - b.stock_quantity
-      }
+      if (sortBy === 'name-asc') return (a.product?.name || '').localeCompare(b.product?.name || '')
+      if (sortBy === 'name-desc') return (b.product?.name || '').localeCompare(a.product?.name || '')
+      if (sortBy === 'stock-desc') return b.stock_quantity - a.stock_quantity
+      if (sortBy === 'stock-asc') return a.stock_quantity - b.stock_quantity
       if (sortBy === 'price-desc') {
-        const aPrice = a.price_override ?? a.product?.base_price ?? 0
-        const bPrice = b.price_override ?? b.product?.base_price ?? 0
-        return bPrice - aPrice
+        const aP = a.price_override ?? a.product?.base_price ?? 0
+        const bP = b.price_override ?? b.product?.base_price ?? 0
+        return bP - aP
       }
       if (sortBy === 'price-asc') {
-        const aPrice = a.price_override ?? a.product?.base_price ?? 0
-        const bPrice = b.price_override ?? b.product?.base_price ?? 0
-        return aPrice - bPrice
+        const aP = a.price_override ?? a.product?.base_price ?? 0
+        const bP = b.price_override ?? b.product?.base_price ?? 0
+        return aP - bP
       }
       return 0
     })
@@ -130,7 +337,6 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
     return result
   }, [variants, debouncedSearch, categoryFilter, brandFilter, stockFilter, sortBy])
 
-  // Stats always calculated over ALL variants (not filtered), so counters are always accurate
   const outOfStock = variants.filter((v: any) => v.stock_quantity <= 0)
   const lowStock = variants.filter((v: any) => v.stock_quantity > 0 && v.stock_quantity <= v.stock_reorder_point)
   const totalValue = filteredVariants.reduce((sum: number, v: any) => sum + (v.stock_quantity * v.cost), 0)
@@ -147,6 +353,12 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
     setBrandFilter('')
     setStockFilter('all')
     setSortBy('name-asc')
+  }
+
+  /** Called when user clicks a product in the OutOfStockSheet */
+  function handleOutOfStockSelect(name: string) {
+    setSearchQuery(name)
+    setStockFilter('all')
   }
 
   const handleExportExcel = async () => {
@@ -189,15 +401,19 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
 
   return (
     <div className="space-y-6">
+      {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-display font-bold tracking-tight">Inventario</h1>
           <p className="text-muted-foreground">Estado del stock, alertas e ingreso de mercancía por variante</p>
         </div>
-
         <div className="flex items-center gap-3">
           <ExportButton onExportExcel={handleExportExcel} onExportPDF={handleExportPDF} />
-          <Link href="/productos/nuevo" className={buttonVariants({ variant: "default" })} style={{ color: 'hsl(var(--primary-foreground))' }}>
+          <Link
+            href="/productos/nuevo"
+            className={buttonVariants({ variant: 'default' })}
+            style={{ color: 'hsl(var(--primary-foreground))' }}
+          >
             <Plus className="mr-2 h-4 w-4" />
             Nuevo Producto
           </Link>
@@ -205,7 +421,7 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
       </div>
 
       {/* Stats */}
-      <div className={cn("grid gap-4", isAdmin ? "grid-cols-2 md:grid-cols-4" : "grid-cols-2 md:grid-cols-3")}>
+      <div className={cn('grid gap-4', isAdmin ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-3')}>
         <Card>
           <CardContent className="pt-5">
             <div className="flex items-center gap-3">
@@ -257,18 +473,20 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
         )}
       </div>
 
-      {/* Alerts */}
+      {/* ── COMPACT OUT-OF-STOCK BANNER ──────────────────────────────────── */}
       {outOfStock.length > 0 && (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
-          <div className="flex items-center gap-2 mb-3 text-destructive font-semibold">
-            <AlertTriangle className="h-4 w-4" />
-            {outOfStock.length} producto(s) agotado(s)
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {outOfStock.map((v: any) => (
-              <Badge key={v.id} variant="destructive">{v.product?.name} — {v.sku}</Badge>
-            ))}
-          </div>
+        <div className="flex items-center gap-3 px-4 h-11 rounded-lg border border-destructive/40 bg-destructive/5">
+          <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+          <p className="flex-1 text-sm font-semibold text-destructive">
+            {outOfStock.length} producto{outOfStock.length !== 1 ? 's' : ''} agotado{outOfStock.length !== 1 ? 's' : ''}
+          </p>
+          <button
+            onClick={() => setOutOfStockOpen(true)}
+            className="flex items-center gap-1 text-xs font-mono font-bold text-destructive hover:text-destructive/70 transition-colors shrink-0"
+          >
+            Ver agotados
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
         </div>
       )}
 
@@ -290,7 +508,7 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
               </div>
             </div>
 
-            {/* Categorías */}
+            {/* Categorías / Talla */}
             <div className="md:col-span-2 space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground uppercase">Talla</label>
               <select
@@ -419,25 +637,32 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
 
                     <div className="grid grid-cols-2 gap-2 text-muted-foreground font-mono text-[11px]">
                       <div>
-                        <span className="text-foreground font-semibold">Talla:</span> {v.product?.categories?.name || '—'}
+                        <span className="text-foreground font-semibold">Talla:</span>{' '}
+                        {v.product?.categories?.name || '—'}
                       </div>
                       <div>
-                        <span className="text-foreground font-semibold">Stock:</span> <span className="font-bold text-foreground">{v.stock_quantity} uds</span>
+                        <span className="text-foreground font-semibold">Stock:</span>{' '}
+                        <span className="font-bold text-foreground">{v.stock_quantity} uds</span>
                       </div>
                       {isAdmin && (
                         <div>
-                          <span className="text-foreground font-semibold">Costo:</span> {formatCurrency(v.cost)}
+                          <span className="text-foreground font-semibold">Costo:</span>{' '}
+                          {formatCurrency(v.cost)}
                         </div>
                       )}
                       {isAdmin && (
                         <div>
-                          <span className="text-foreground font-semibold">Valor Stock:</span> {formatCurrency(v.stock_quantity * v.cost)}
+                          <span className="text-foreground font-semibold">Valor Stock:</span>{' '}
+                          {formatCurrency(v.stock_quantity * v.cost)}
                         </div>
                       )}
                     </div>
 
                     {isAdmin && (
-                      <div className="pt-2 border-t border-border/50 flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
+                      <div
+                        className="pt-2 border-t border-border/50 flex items-center justify-between"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <span className="text-[11px] font-mono text-muted-foreground">Acciones:</span>
                         <AddStockModal
                           variantId={v.id}
@@ -480,7 +705,11 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
                     <TableRow
                       key={v.id}
                       className={`cursor-pointer transition-colors hover:bg-muted/50 ${
-                        v.stock_quantity <= 0 ? 'bg-destructive/5' : v.stock_quantity <= v.stock_reorder_point ? 'bg-warning/5' : ''
+                        v.stock_quantity <= 0
+                          ? 'bg-destructive/5'
+                          : v.stock_quantity <= v.stock_reorder_point
+                          ? 'bg-warning/5'
+                          : ''
                       }`}
                     >
                       <TableCell onClick={() => setSelectedVariant(v)} className="whitespace-nowrap">
@@ -519,11 +748,17 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
                         </div>
                       </TableCell>
 
-                      {/* Stock Clicable */}
+                      {/* Stock */}
                       <TableCell className="text-center font-bold whitespace-nowrap" onClick={() => setSelectedVariant(v)}>
-                        <span className={`px-2 py-1 rounded ${
-                          v.stock_quantity <= 0 ? 'bg-destructive/20 text-destructive font-black' : v.stock_quantity <= v.stock_reorder_point ? 'bg-warning/20 text-warning font-black' : 'text-foreground'
-                        }`}>
+                        <span
+                          className={`px-2 py-1 rounded ${
+                            v.stock_quantity <= 0
+                              ? 'bg-destructive/20 text-destructive font-black'
+                              : v.stock_quantity <= v.stock_reorder_point
+                              ? 'bg-warning/20 text-warning font-black'
+                              : 'text-foreground'
+                          }`}
+                        >
                           {v.stock_quantity}
                         </span>
                       </TableCell>
@@ -539,7 +774,6 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
                         </TableCell>
                       )}
 
-                      {/* Botón de Agregar Cantidad al Stock */}
                       {isAdmin && (
                         <TableCell className="text-center whitespace-nowrap">
                           <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -563,11 +797,19 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
         </CardContent>
       </Card>
 
-      {/* Side Panel Sheet */}
+      {/* Detail Sheet (existing) */}
       <InventoryDetailSheet
         open={!!selectedVariant}
         onOpenChange={(open) => !open && setSelectedVariant(null)}
         data={selectedVariant}
+      />
+
+      {/* Out-of-stock Sheet (new) */}
+      <OutOfStockSheet
+        open={outOfStockOpen}
+        onClose={() => setOutOfStockOpen(false)}
+        outOfStock={outOfStock}
+        onSelectProduct={handleOutOfStockSelect}
       />
     </div>
   )

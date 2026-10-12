@@ -47,9 +47,11 @@ interface MovementsListClientProps {
   pageSize: number
   year: number
   month: number
+  /** Día filtrado actualmente (null = todo el mes) */
+  day?: number | null
 }
 
-export function MovementsListClient({ initialMovements, totalCount, currentPage, pageSize, year, month }: MovementsListClientProps) {
+export function MovementsListClient({ initialMovements, totalCount, currentPage, pageSize, year, month, day = null }: MovementsListClientProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -120,9 +122,9 @@ export function MovementsListClient({ initialMovements, totalCount, currentPage,
             </div>
           </div>
 
-          {/* Month filter */}
+          {/* Month filter — pasar day para mostrar selector de día */}
           <div className="flex flex-wrap items-center gap-3 bg-secondary/20 p-3.5 border rounded-lg">
-            <MonthFilter year={year} month={month} />
+            <MonthFilter year={year} month={month} day={day} />
           </div>
         </div>
       </CardHeader>
@@ -133,7 +135,9 @@ export function MovementsListClient({ initialMovements, totalCount, currentPage,
             <p>
               {search || typeFilter !== 'all'
                 ? 'No se encontraron movimientos con los filtros aplicados'
-                : 'No hay movimientos registrados en este mes'}
+                : day !== null
+                  ? `No hay movimientos para el día ${day} de este mes`
+                  : 'No hay movimientos registrados en este mes'}
             </p>
           </div>
         ) : (

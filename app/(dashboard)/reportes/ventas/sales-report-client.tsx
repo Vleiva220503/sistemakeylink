@@ -34,6 +34,8 @@ interface SalesReportClientProps {
   endDate: string
   year: number
   month: number
+  /** Día filtrado actualmente (null = todo el mes) */
+  day?: number | null
   prevMonthTotal: number
   prevMonthSales: Array<{ created_at: string; total: number | string; status: string }>
 }
@@ -49,6 +51,7 @@ export function SalesReportClient({
   endDate,
   year,
   month,
+  day = null,
   prevMonthTotal,
   prevMonthSales,
 }: SalesReportClientProps) {
@@ -263,7 +266,10 @@ export function SalesReportClient({
       estado: s.status === 'completed' ? 'Completada' : s.status === 'cancelled' ? 'Anulada' : s.status,
     }))
 
-    const dateRange = `${monthName(month)} ${year}`
+    // Etiqueta del rango refleja si hay filtro de día
+    const dateRange = day !== null
+      ? `${day} de ${monthName(month)} ${year}`
+      : `${monthName(month)} ${year}`
 
     await exportSalesPDF(rows, {
       totalVentas: totalRevenue,
@@ -290,7 +296,8 @@ export function SalesReportClient({
       {/* Month navigation + comparison + weekly */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3">
-          <MonthFilter year={year} month={month} />
+          {/* Pasar day al MonthFilter para mostrar el selector */}
+          <MonthFilter year={year} month={month} day={day} />
           <button
             onClick={() => setShowWeekly(v => !v)}
             className="h-9 px-3 text-xs font-mono font-bold uppercase tracking-wider border border-border bg-card hover:bg-secondary transition-colors cursor-pointer shrink-0"

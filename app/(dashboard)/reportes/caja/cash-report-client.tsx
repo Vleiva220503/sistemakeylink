@@ -31,6 +31,8 @@ interface CashReportClientProps {
   endDate: string
   year: number
   month: number
+  /** Día filtrado actualmente (null = todo el mes) */
+  day?: number | null
   prevNetFlow: number
 }
 
@@ -49,6 +51,7 @@ export function CashReportClient({
   endDate,
   year,
   month,
+  day = null,
   prevNetFlow,
 }: CashReportClientProps) {
   const router = useRouter()
@@ -153,7 +156,10 @@ export function CashReportClient({
       usuario: m.usuario?.full_name || 'Sistema',
     }))
 
-    const dateRange = `${monthName(month)} ${year}`
+    // Etiqueta del rango refleja si hay filtro de día
+    const dateRange = day !== null
+      ? `${day} de ${monthName(month)} ${year}`
+      : `${monthName(month)} ${year}`
 
     await exportCashMovementsPDF(rows, { dateRange, netChange: netCashFlow })
   }
@@ -175,7 +181,8 @@ export function CashReportClient({
 
       {/* Month navigation + comparison */}
       <div className="flex flex-col gap-4">
-        <MonthFilter year={year} month={month} />
+        {/* Pasar day al MonthFilter para mostrar el selector */}
+        <MonthFilter year={year} month={month} day={day} />
         <MonthComparison
           currentTotal={netCashFlow}
           prevTotal={prevNetFlow}

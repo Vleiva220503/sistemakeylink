@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Activity, ArrowUpCircle, ArrowDownCircle, RefreshCw } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { MovementsListClient } from './movements-list-client'
-import { parseMonthParams, getMonthRange, monthName } from '@/lib/month-filter'
+import { parseMonthParams, getMonthRange, getDayRange, parseDayParam, monthName } from '@/lib/month-filter'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,6 +10,7 @@ interface PageProps {
   searchParams: Promise<{
     year?: string
     month?: string
+    day?: string
     page?: string
   }>
 }
@@ -20,7 +21,11 @@ export default async function MovimientosInventarioPage({ searchParams }: PagePr
   const supabase = await createClient()
   const params = await searchParams
   const { year, month } = parseMonthParams(params)
-  const { startISO, endISO } = getMonthRange(year, month)
+  // Filtro de día: created_at es ISO timestamp, usa rango UTC ajustado a Nicaragua
+  const day = parseDayParam(params, year, month)
+  const { startISO, endISO } = day !== null
+    ? getDayRange(year, month, day)
+    : getMonthRange(year, month)
   const currentPage = Math.max(0, parseInt(params.page || '0', 10))
   const from = currentPage * PAGE_SIZE
   const to = from + PAGE_SIZE - 1
@@ -127,6 +132,7 @@ export default async function MovimientosInventarioPage({ searchParams }: PagePr
         pageSize={PAGE_SIZE}
         year={year}
         month={month}
+        day={day}
       />
     </div>
   )

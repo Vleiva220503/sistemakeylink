@@ -24,6 +24,8 @@ interface MovementsReportClientProps {
   endDate: string
   year: number
   month: number
+  /** Día filtrado actualmente (null = todo el mes) */
+  day?: number | null
 }
 
 const MOVEMENT_TYPES_TRANSLATE: Record<string, string> = {
@@ -46,6 +48,7 @@ export function MovementsReportClient({
   endDate,
   year,
   month,
+  day = null,
 }: MovementsReportClientProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -139,7 +142,10 @@ export function MovementsReportClient({
       notas: m.notes || '—',
     }))
 
-    const dateRange = `${monthName(month)} ${year}`
+    // Etiqueta del rango refleja si hay filtro de día
+    const dateRange = day !== null
+      ? `${day} de ${monthName(month)} ${year}`
+      : `${monthName(month)} ${year}`
 
     await exportInventoryMovementsPDF(rows, { dateRange })
   }
@@ -159,8 +165,8 @@ export function MovementsReportClient({
         </div>
       </div>
 
-      {/* Month navigation */}
-      <MonthFilter year={year} month={month} />
+      {/* Month navigation — pasar day para mostrar selector de día */}
+      <MonthFilter year={year} month={month} day={day} />
 
       {/* Summary Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

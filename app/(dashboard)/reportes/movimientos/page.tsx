@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { MovementsReportClient } from './movements-report-client'
-import { parseMonthParams, getMonthRange } from '@/lib/month-filter'
+import { parseMonthParams, getMonthRange, getDayRange, parseDayParam } from '@/lib/month-filter'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,13 +8,18 @@ interface Props {
   searchParams: Promise<{
     year?: string
     month?: string
+    day?: string
   }>
 }
 
 export default async function ReporteMovimientosInventarioPage({ searchParams }: Props) {
   const params = await searchParams
   const { year, month } = parseMonthParams(params)
-  const { startISO, endISO, startDate, endDate } = getMonthRange(year, month)
+  // Filtro de día: created_at es ISO timestamp, usa rango UTC ajustado a Nicaragua
+  const day = parseDayParam(params, year, month)
+  const { startISO, endISO, startDate, endDate } = day !== null
+    ? getDayRange(year, month, day)
+    : getMonthRange(year, month)
   const supabase = await createClient()
 
   // Load inventory movements in range
@@ -51,6 +56,7 @@ export default async function ReporteMovimientosInventarioPage({ searchParams }:
       endDate={endDate}
       year={year}
       month={month}
+      day={day}
     />
   )
 }

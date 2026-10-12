@@ -3,7 +3,7 @@ import { DollarSign, TrendingUp, TrendingDown, PieChart } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatCurrency } from '@/lib/utils'
-import { parseMonthParams, getMonthRange, getPrevMonth, monthName } from '@/lib/month-filter'
+import { parseMonthParams, getMonthRange, getDayRange, parseDayParam, getPrevMonth, monthName } from '@/lib/month-filter'
 import { MonthFilter } from '@/components/shared/month-filter'
 import { MonthComparison } from '@/components/shared/month-comparison'
 
@@ -13,16 +13,27 @@ interface Props {
   searchParams: Promise<{
     year?: string
     month?: string
+    day?: string
   }>
 }
 
 export default async function ReporteRentabilidadPage({ searchParams }: Props) {
   const params = await searchParams
   const { year, month } = parseMonthParams(params)
-  const { startDate: firstDayOfMonth, endDate: lastDayOfMonth } = getMonthRange(year, month)
+  // Filtro de día: si existe reemplaza el rango mensual
+  const day = parseDayParam(params, year, month)
+  const {
+    startDate: firstDayOfMonth,
+    endDate: lastDayOfMonth,
+    startISO: dayStartISO,
+    endISO: dayEndISO,
+  } = day !== null
+    ? getDayRange(year, month, day)
+    : getMonthRange(year, month)
   const supabase = await createClient()
 
   // Current month: completed sales with sale_items
+  // Para sales (ISO timestamp) usamos el rango ISO; para expenses (YYYY-MM-DD) el date string
   const { data: salesRows } = await (supabase as any)
     .from('sales')
     .select(`
@@ -34,10 +45,10 @@ export default async function ReporteRentabilidadPage({ searchParams }: Props) {
       sale_items(quantity, unit_price, unit_cost, discount_amount)
     `)
     .eq('status', 'completed')
-    .gte('created_at', `${firstDayOfMonth}T00:00:00`)
-    .lte('created_at', `${lastDayOfMonth}T23:59:59`)
+    .gte('created_at', dayStartISO ?? `${firstDayOfMonth}T00:00:00`)
+    .lte('created_at', dayEndISO ?? `${lastDayOfMonth}T23:59:59`)
 
-  // Current month: expenses
+  // Current month: expenses (campo YYYY-MM-DD, rango de fecha directamente)
   const { data: expensesRows } = await (supabase as any)
     .from('expenses')
     .select('amount')
@@ -119,7 +130,7 @@ export default async function ReporteRentabilidadPage({ searchParams }: Props) {
             {monthName(month)} {year} · {firstDayOfMonth} → {lastDayOfMonth}
           </p>
         </div>
-        <MonthFilter year={year} month={month} />
+        <MonthFilter year={year} month={month} day={day} />
       </div>
 
       {/* Comparison vs prev month */}

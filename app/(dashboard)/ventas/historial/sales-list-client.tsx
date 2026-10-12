@@ -82,6 +82,8 @@ interface SalesListClientProps {
   pageSize: number
   year: number
   month: number
+  /** Día filtrado actualmente (null = todo el mes) */
+  day?: number | null
   currentMonthTotal: number
   prevMonthTotal: number
   currentMonthSales: Array<{ created_at: string; total: number | string; status: string }>
@@ -96,6 +98,7 @@ export function SalesListClient({
   pageSize,
   year,
   month,
+  day = null,
   currentMonthTotal,
   prevMonthTotal,
   currentMonthSales,
@@ -161,7 +164,11 @@ export function SalesListClient({
         : 'Efectivo',
       estado: s.status === 'completed' ? 'Completada' : s.status === 'cancelled' ? 'Cancelada' : s.status,
     }))
-    await exportToExcel(rows, `Ventas_${year}-${String(month).padStart(2,'0')}.xlsx`, 'Ventas')
+    // Nombre del archivo refleja si hay filtro de día
+    const fileSuffix = day !== null
+      ? `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`
+      : `${year}-${String(month).padStart(2,'0')}`
+    await exportToExcel(rows, `Ventas_${fileSuffix}.xlsx`, 'Ventas')
   }
 
   const handleExportPDF = async () => {
@@ -185,10 +192,15 @@ export function SalesListClient({
       estado: s.status === 'completed' ? 'Completada' : s.status === 'cancelled' ? 'Cancelada' : s.status,
     }))
 
+    // Etiqueta del rango refleja si hay filtro de día
+    const dateRange = day !== null
+      ? `${day} de ${monthName(month)} ${year}`
+      : `${monthName(month)} ${year}`
+
     await exportSalesPDF(rows, {
       totalVentas: currentMonthTotal,
       cantidadVentas: filteredSales.filter(s => s.status === 'completed').length,
-      dateRange: `${monthName(month)} ${year}`,
+      dateRange,
     })
   }
 
@@ -196,7 +208,8 @@ export function SalesListClient({
     <div className="space-y-4">
       {/* Month navigation */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <MonthFilter year={year} month={month} />
+        {/* Pasar day al MonthFilter para que muestre el selector de día */}
+        <MonthFilter year={year} month={month} day={day} />
         <button
           onClick={() => setShowWeekly((v) => !v)}
           className="h-9 px-3 text-xs font-mono font-bold uppercase tracking-wider border border-border bg-card hover:bg-secondary transition-colors cursor-pointer shrink-0"
@@ -294,7 +307,9 @@ export function SalesListClient({
               <p>
                 {search || statusFilter !== 'all'
                   ? 'No se encontraron ventas con los filtros aplicados'
-                  : 'No hay ventas registradas en este mes'}
+                  : day !== null
+                    ? `No hay ventas para el día ${day} de ${monthName(month)} ${year}`
+                    : 'No hay ventas registradas en este mes'}
               </p>
             </div>
           ) : (

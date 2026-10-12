@@ -59,6 +59,58 @@ export function getMonthRange(year: number, month: number): MonthRange {
 }
 
 /**
+ * Calcula el rango de fechas (inicio y fin) para un día específico de un mes.
+ * Nicaragua = UTC-6 sin horario de verano.
+ * Start: 00:00 Nicaragua = 06:00 UTC del mismo día.
+ * End:   23:59:59.999 Nicaragua = 05:59:59.999 UTC del día siguiente.
+ *
+ * Para campos de tipo YYYY-MM-DD (no timestamp), el rango es exactamente ese día
+ * y devuelve startDate === endDate.
+ */
+export function getDayRange(
+  year: number,
+  month: number,
+  day: number
+): { startISO: string; endISO: string; startDate: string; endDate: string } {
+  const mm = String(month).padStart(2, '0')
+  const dd = String(day).padStart(2, '0')
+
+  // Día siguiente para calcular el final del día en UTC
+  const nextDay = new Date(Date.UTC(year, month - 1, day + 1))
+  const nextYear  = nextDay.getUTCFullYear()
+  const nextMonth = String(nextDay.getUTCMonth() + 1).padStart(2, '0')
+  const nextDd    = String(nextDay.getUTCDate()).padStart(2, '0')
+
+  return {
+    // Nicaragua 00:00 → UTC 06:00 del mismo día
+    startISO:  `${year}-${mm}-${dd}T06:00:00.000Z`,
+    // Nicaragua 23:59:59.999 → UTC 05:59:59.999 del día siguiente
+    endISO:    `${nextYear}-${nextMonth}-${nextDd}T05:59:59.999Z`,
+    // Para campos YYYY-MM-DD el rango es el mismo día
+    startDate: `${year}-${mm}-${dd}`,
+    endDate:   `${year}-${mm}-${dd}`,
+  }
+}
+
+/**
+ * Parsea el parámetro de URL `day` validando que sea un día real del mes.
+ * Devuelve null si no existe o no es válido (fuera de rango, no bisiesto, etc.).
+ */
+export function parseDayParam(
+  params: { day?: string },
+  year: number,
+  month: number
+): number | null {
+  if (!params.day) return null
+  const d = parseInt(params.day, 10)
+  if (isNaN(d) || d < 1) return null
+  // Último día real del mes (maneja años bisiestos automáticamente)
+  const lastDay = new Date(year, month, 0).getDate()
+  if (d > lastDay) return null
+  return d
+}
+
+/**
  * Parsea los parámetros de URL `year` y `month` con fallback al mes actual.
  */
 export function parseMonthParams(params: {

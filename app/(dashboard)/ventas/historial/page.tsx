@@ -3,7 +3,7 @@ import { ShoppingCart, CheckCircle, Clock, DollarSign } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { formatCurrency } from '@/lib/utils'
 import { SalesListClient } from './sales-list-client'
-import { parseMonthParams, getMonthRange, getPrevMonth, monthName } from '@/lib/month-filter'
+import { parseMonthParams, getMonthRange, getDayRange, parseDayParam, getPrevMonth, monthName } from '@/lib/month-filter'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +13,7 @@ interface PageProps {
   searchParams: Promise<{
     year?: string
     month?: string
+    day?: string
     page?: string
   }>
 }
@@ -21,7 +22,11 @@ export default async function HistorialVentasPage({ searchParams }: PageProps) {
   const supabase = await createClient()
   const params = await searchParams
   const { year, month } = parseMonthParams(params)
-  const { startISO, endISO } = getMonthRange(year, month)
+  // Filtro de día: si existe y es válido para este mes, usa getDayRange en lugar de getMonthRange
+  const day = parseDayParam(params, year, month)
+  const { startISO, endISO } = day !== null
+    ? getDayRange(year, month, day)
+    : getMonthRange(year, month)
   const currentPage = Math.max(0, parseInt(params.page || '0', 10))
 
   // Get active session user role
@@ -173,6 +178,7 @@ export default async function HistorialVentasPage({ searchParams }: PageProps) {
         pageSize={PAGE_SIZE}
         year={year}
         month={month}
+        day={day}
         currentMonthTotal={totalRevenue}
         prevMonthTotal={prevRevenue}
         currentMonthSales={currentSales}
