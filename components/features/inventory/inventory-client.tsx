@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import { useDebounce } from '@/hooks/use-debounce'
 import {
   Package, AlertTriangle, TrendingDown, Plus,
-  Search, RotateCcw, ArrowUpDown, X, ChevronRight,
+  Search, RotateCcw, X, ChevronRight,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -17,6 +17,7 @@ import { buttonVariants, Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { SafeImage } from '@/components/shared/safe-image'
 import { ExportButton } from '@/components/shared/export-button'
+import { PaginationControls } from '@/components/shared/pagination-controls'
 import { resolveProductImage } from '@/lib/resolve-product-image'
 import {
   Sheet,
@@ -252,8 +253,10 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
   const [brandFilter, setBrandFilter] = useState('')
   const [stockFilter, setStockFilter] = useState<'all' | 'out' | 'low' | 'normal'>('all')
   const [sortBy, setSortBy] = useState<string>('name-asc')
+  const [invPage, setInvPage] = useState(0)
+  const INV_PAGE_SIZE = 50
 
-  const variants = initialVariants || []
+  const variants = useMemo(() => initialVariants || [], [initialVariants])
 
   // Dynamic filter options based on data
   const categories = useMemo(() => {
@@ -337,15 +340,16 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
     return result
   }, [variants, debouncedSearch, categoryFilter, brandFilter, stockFilter, sortBy])
 
+  // Reset to page 1 whenever filters/search/sort change
+  // Paged slice — only this subset renders in the table
+  const pagedVariants = useMemo(() =>
+    filteredVariants.slice(invPage * INV_PAGE_SIZE, (invPage + 1) * INV_PAGE_SIZE),
+    [filteredVariants, invPage, INV_PAGE_SIZE]
+  )
+
   const outOfStock = variants.filter((v: any) => v.stock_quantity <= 0)
   const lowStock = variants.filter((v: any) => v.stock_quantity > 0 && v.stock_quantity <= v.stock_reorder_point)
   const totalValue = filteredVariants.reduce((sum: number, v: any) => sum + (v.stock_quantity * v.cost), 0)
-
-  function getStockStatus(v: any) {
-    if (v.stock_quantity <= 0) return { label: 'Agotado', variant: 'destructive' as const }
-    if (v.stock_quantity <= v.stock_reorder_point) return { label: 'Stock Bajo', variant: 'warning' as const }
-    return { label: 'Normal', variant: 'default' as const }
-  }
 
   function handleResetFilters() {
     setSearchQuery('')
@@ -353,6 +357,7 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
     setBrandFilter('')
     setStockFilter('all')
     setSortBy('name-asc')
+    setInvPage(0)
   }
 
   /** Called when user clicks a product in the OutOfStockSheet */
@@ -503,7 +508,7 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
                   placeholder="Buscar por nombre, SKU, barra..."
                   className="pl-9 h-10 text-sm bg-background border-border"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => { setSearchQuery(e.target.value); setInvPage(0) }}
                 />
               </div>
             </div>
@@ -514,7 +519,7 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
               <select
                 className="w-full h-10 px-3 text-sm bg-background border border-border rounded-md outline-none focus:ring-1 focus:ring-primary"
                 value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
+                onChange={(e) => { setCategoryFilter(e.target.value); setInvPage(0) }}
               >
                 <option value="">Todas</option>
                 {categories.map((c) => (
@@ -531,7 +536,7 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
               <select
                 className="w-full h-10 px-3 text-sm bg-background border border-border rounded-md outline-none focus:ring-1 focus:ring-primary"
                 value={brandFilter}
-                onChange={(e) => setBrandFilter(e.target.value)}
+                onChange={(e) => { setBrandFilter(e.target.value); setInvPage(0) }}
               >
                 <option value="">Todas</option>
                 {brands.map((b) => (
@@ -546,7 +551,7 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
               <select
                 className="w-full h-10 px-3 text-sm bg-background border border-border rounded-md outline-none focus:ring-1 focus:ring-primary"
                 value={stockFilter}
-                onChange={(e) => setStockFilter(e.target.value as any)}
+                onChange={(e) => { setStockFilter(e.target.value as any); setInvPage(0) }}
               >
                 <option value="all">Todos</option>
                 <option value="normal">Normal</option>
@@ -561,7 +566,7 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
               <select
                 className="w-full h-10 px-3 text-sm bg-background border border-border rounded-md outline-none focus:ring-1 focus:ring-primary"
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
+                onChange={(e) => { setSortBy(e.target.value); setInvPage(0) }}
               >
                 <option value="name-asc">Nombre (A-Z)</option>
                 <option value="name-desc">Nombre (Z-A)</option>
@@ -598,12 +603,12 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
         <CardContent>
           {/* Mobile Card View (< 768px) */}
           <div className="block md:hidden space-y-3">
-            {filteredVariants.length === 0 ? (
+            {pagedVariants.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground font-mono text-xs bg-background/50 border border-border p-4">
                 No hay productos que coincidan con los filtros.
               </div>
             ) : (
-              filteredVariants.map((v: any) => {
+              pagedVariants.map((v: any) => {
                 const img = resolveProductImage(v.product, v.image_url)
                 const isOutOfStock = v.stock_quantity <= 0
                 const isLowStock = v.stock_quantity <= v.stock_reorder_point && v.stock_quantity > 0
@@ -698,7 +703,7 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredVariants.map((v: any) => {
+                {pagedVariants.map((v: any) => {
                   const img = resolveProductImage(v.product, v.image_url)
 
                   return (
@@ -794,6 +799,12 @@ export function InventoryClient({ initialVariants, isAdmin = false }: InventoryC
               </TableBody>
             </Table>
           </div>
+          <PaginationControls
+            currentPage={invPage}
+            totalCount={filteredVariants.length}
+            pageSize={INV_PAGE_SIZE}
+            onPageChange={setInvPage}
+          />
         </CardContent>
       </Card>
 

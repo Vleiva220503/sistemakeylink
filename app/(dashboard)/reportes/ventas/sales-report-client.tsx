@@ -135,45 +135,58 @@ export function SalesReportClient({
     return result
   }, [debouncedSearch, cashierFilter, paymentFilter, statusFilter, deliveryFilter, initialSales])
 
-  // Dynamic KPI Aggregation
-  const completedSales = filteredSales.filter(s => s.status === 'completed')
+  // Dynamic KPI Aggregation — memoized to avoid O(N) recalcs on every render
+  const { completedSales, ownDeliveryTotal, externalDeliveryTotal, totalRevenue, avgTicket, totalDiscount, cashTotal, cardTotal } = useMemo(() => {
+    const completed = filteredSales.filter(s => s.status === 'completed')
 
-  // Delivery breakdown: own vs external
-  const ownDeliveryTotal = completedSales.reduce((sum, s) =>
-    s.delivery_type === 'own' || (!s.delivery_type && Number(s.delivery_amount) > 0)
-      ? sum + Number(s.delivery_amount || 0)
-      : sum
-  , 0)
-  const externalDeliveryTotal = completedSales.reduce((sum, s) =>
-    s.delivery_type === 'external' ? sum + Number(s.delivery_amount || 0) : sum
-  , 0)
+    // Delivery breakdown: own vs external
+    const ownDel = completed.reduce((sum, s) =>
+      s.delivery_type === 'own' || (!s.delivery_type && Number(s.delivery_amount) > 0)
+        ? sum + Number(s.delivery_amount || 0)
+        : sum
+    , 0)
+    const extDel = completed.reduce((sum, s) =>
+      s.delivery_type === 'external' ? sum + Number(s.delivery_amount || 0) : sum
+    , 0)
 
-  // Total Revenue: For external delivery, delivery amount is not cash in register, but sales total includes it.
-  // "Ingresos Reales" = total of completed sales - external delivery amounts
-  const totalRevenue = completedSales.reduce((sum, s) => {
-    const extDel = s.delivery_type === 'external' ? Number(s.delivery_amount || 0) : 0
-    return sum + (Number(s.total) - extDel)
-  }, 0)
+    // Total Revenue: For external delivery, delivery amount is not cash in register, but sales total includes it.
+    // "Ingresos Reales" = total of completed sales - external delivery amounts
+    const revenue = completed.reduce((sum, s) => {
+      const extDelAmt = s.delivery_type === 'external' ? Number(s.delivery_amount || 0) : 0
+      return sum + (Number(s.total) - extDelAmt)
+    }, 0)
 
-  const avgTicket = completedSales.length > 0 ? totalRevenue / completedSales.length : 0
+    const avg = completed.length > 0 ? revenue / completed.length : 0
 
-  const totalDiscount = completedSales.reduce((sum, s) => {
-    const itemsDiscountSum = s.sale_items?.reduce((acc: number, item: any) => acc + Number(item.discount_amount ?? 0), 0) ?? 0
-    const effectiveSaleDiscount = itemsDiscountSum > 0 ? itemsDiscountSum : Number(s.discount_amount ?? 0)
-    return sum + effectiveSaleDiscount
-  }, 0)
+    const discount = completed.reduce((sum, s) => {
+      const itemsDiscountSum = s.sale_items?.reduce((acc: number, item: any) => acc + Number(item.discount_amount ?? 0), 0) ?? 0
+      const effectiveSaleDiscount = itemsDiscountSum > 0 ? itemsDiscountSum : Number(s.discount_amount ?? 0)
+      return sum + effectiveSaleDiscount
+    }, 0)
 
-  const cashTotal = completedSales.reduce((sum, s) => {
-    if (!s.payments || s.payments.length === 0) return sum + Number(s.total)
-    const cashPayments = s.payments.filter((p: any) => p.method === 'cash')
-    return sum + cashPayments.reduce((pSum: number, p: any) => pSum + Number(p.amount), 0)
-  }, 0)
+    const cash = completed.reduce((sum, s) => {
+      if (!s.payments || s.payments.length === 0) return sum + Number(s.total)
+      const cashPayments = s.payments.filter((p: any) => p.method === 'cash')
+      return sum + cashPayments.reduce((pSum: number, p: any) => pSum + Number(p.amount), 0)
+    }, 0)
 
-  const cardTotal = completedSales.reduce((sum, s) => {
-    if (!s.payments || s.payments.length === 0) return sum
-    const cardPayments = s.payments.filter((p: any) => p.method === 'card')
-    return sum + cardPayments.reduce((pSum: number, p: any) => pSum + Number(p.amount), 0)
-  }, 0)
+    const card = completed.reduce((sum, s) => {
+      if (!s.payments || s.payments.length === 0) return sum
+      const cardPayments = s.payments.filter((p: any) => p.method === 'card')
+      return sum + cardPayments.reduce((pSum: number, p: any) => pSum + Number(p.amount), 0)
+    }, 0)
+
+    return {
+      completedSales: completed,
+      ownDeliveryTotal: ownDel,
+      externalDeliveryTotal: extDel,
+      totalRevenue: revenue,
+      avgTicket: avg,
+      totalDiscount: discount,
+      cashTotal: cash,
+      cardTotal: card,
+    }
+  }, [filteredSales])
 
   // Daily Sales trend for Recharts — derived from year/month props so it updates on filter change
   const chartData = useMemo(() => {
