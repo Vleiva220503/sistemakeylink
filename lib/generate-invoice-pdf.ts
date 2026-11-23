@@ -87,6 +87,16 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<void> {
   doc.setFontSize(8.5)
   doc.text('Managua, Nicaragua', margin, y)
 
+  y += 4
+  doc.setFontSize(7)
+  const addressLines = doc.splitTextToSize(
+    'Cooperativa Parrales Vallejos, Rubenia, 2 cuadras al sur, 25 varas abajo, mano derecha.',
+    contentW / 2 - 4
+  )
+  doc.text(addressLines, margin, y)
+  y += addressLines.length * 3.8
+  doc.text('Tel: +505 8567 1838', margin, y)
+
   // Right: FACTURA & Sale Details
   const rightX = pageW - margin
 
@@ -117,8 +127,11 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<void> {
   doc.text(`${dateStr},`, rightX, 35, { align: 'right' })
   doc.text(timeStr, rightX, 39.5, { align: 'right' })
 
-  // Divider Line below header
-  y = 46
+  // Divider Line below header — se coloca debajo del bloque más alto
+  // (lado izquierdo: hasta el teléfono; lado derecho: hasta la hora ≈39.5 mm)
+  const leftEndY  = y + 3.8 + 4   // una línea más de altura del tel + margen
+  const rightEndY = 39.5 + 4       // hora + margen
+  y = Math.max(leftEndY, rightEndY)
   doc.setDrawColor(...BRAND.lineBlue)
   doc.setLineWidth(0.6)
   doc.line(margin, y, pageW - margin, y)
@@ -272,16 +285,41 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<void> {
   doc.setFontSize(12)
   doc.text(formatNIO(data.total), totalsX, finalY, { align: 'right' })
 
-  // ── 5. FOOTER anclado al pie físico de la página ─────────────────────────
-  // Se posiciona desde el fondo real del A4 (297 mm) independientemente del
-  // número de productos, para evitar espacio vacío en facturas cortas.
-  const footerY = pageH - 14  // 14 mm de margen inferior
+  // ── 5. FOOTER UNIFICADO ───────────────────────────────────────────────────
+  // Orden: línea separadora → ¡Gracias! → políticas → Agradecemos
+  // Una sola línea separadora, sin "No se aceptan devoluciones" duplicado.
+  const pageBottom = pageH - 8   // 8 mm de margen inferior
 
-  // Línea decorativa separadora del footer
-  doc.setDrawColor(226, 232, 240)
-  doc.setLineWidth(0.3)
-  doc.line(margin, footerY - 8, pageW - margin, footerY - 8)
+  // Preparar líneas de política con wrap al ancho del contenido
+  const policyItems = [
+    '- El plazo máximo para solicitar un cambio es de 3 días calendario a partir de la fecha de compra.',
+    '- Los cambios se realizan únicamente por motivo de talla.',
+    '- Los zapatos adquiridos con descuento, en promoción o en liquidación no tienen cambio ni devolución.',
+    '- No se aceptan devoluciones.',
+  ]
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(7)
+  const pLH = 4.0
+  const wrappedItems = policyItems.map(l => doc.splitTextToSize(l, contentW))
 
+  // Calcular altura total del footer para anclarlo desde abajo
+  const graciasH  = 6     // "¡Gracias por su preferencia!"
+  const gapH      = 3     // espacio entre gracias y políticas
+  const policiesH = wrappedItems.reduce((acc, lines) => acc + lines.length * pLH, 0)
+                  + 2     // línea en blanco entre políticas y "Agradecemos"
+                  + 4.5   // "Agradecemos su comprensión y preferencia."
+  const topPad    = 5     // espacio tras la línea separadora superior
+  const footerTotalH = topPad + graciasH + gapH + policiesH + 4
+
+  // Línea separadora superior (una sola)
+  const footerTopLine = pageBottom - footerTotalH
+  doc.setDrawColor(...BRAND.lineBlue)
+  doc.setLineWidth(0.4)
+  doc.line(margin, footerTopLine, pageW - margin, footerTopLine)
+
+  let fy = footerTopLine + topPad
+
+  // "¡Gracias por su preferencia!" — primero
   const shortFirstName = clientName !== 'Cliente Estándar' ? clientName.split(' ')[0] : ''
   const thankMsg = shortFirstName
     ? `¡Gracias por su preferencia, ${shortFirstName}!`
@@ -290,22 +328,20 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<void> {
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(9.5)
   doc.setTextColor(...BRAND.navy)
-  doc.text(thankMsg, pageW / 2, footerY - 3, { align: 'center' })
+  doc.text(thankMsg, pageW / 2, fy, { align: 'center' })
+  fy += graciasH + gapH
 
+  // Políticas — debajo de "¡Gracias!"
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(7.5)
-  doc.setTextColor(...BRAND.textMuted)
-  doc.text('No se aceptan devoluciones', pageW / 2, footerY + 2, { align: 'center' })
-
-  // Dirección y teléfono del local — centrados en el pie
   doc.setFontSize(7)
-  doc.text(
-    'Managua, Cooperativa Parrales Vallejos, Rubenia, 2 cuadras al sur, 25 varas abajo, mano derecha.',
-    pageW / 2,
-    footerY + 7,
-    { align: 'center', maxWidth: contentW }
-  )
-  doc.text('Tel: +505 8567 1838', pageW / 2, footerY + 11.5, { align: 'center' })
+  doc.setTextColor(...BRAND.textMuted)
+
+  for (const lines of wrappedItems) {
+    doc.text(lines, pageW / 2, fy, { align: 'center' })
+    fy += lines.length * pLH
+  }
+  fy += 2  // línea en blanco
+  doc.text('Agradecemos su comprensión y preferencia.', pageW / 2, fy, { align: 'center' })
 
   // ── 6. SAVE ───────────────────────────────────────────────────────────────
   const filename = `Factura_${String(data.saleNumber).replace(/\//g, '-')}_${
