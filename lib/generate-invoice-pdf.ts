@@ -293,7 +293,6 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<void> {
   // Preparar líneas de política con wrap al ancho del contenido
   const policyItems = [
     '- El plazo máximo para solicitar un cambio es de 3 días calendario a partir de la fecha de compra.',
-    '- Los cambios se realizan únicamente por motivo de talla.',
     '- Los zapatos adquiridos con descuento, en promoción o en liquidación no tienen cambio ni devolución.',
     '- No se aceptan devoluciones.',
   ]
