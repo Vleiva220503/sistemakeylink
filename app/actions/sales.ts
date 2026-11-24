@@ -33,6 +33,27 @@ export async function createSale(payload: CreateSalePayload) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'No autorizado' }
 
+  // Server-side validation: the user must have an open register with opened_by = their uid.
+  // We ignore payload.register_id and use the server's authoritative value instead.
+  const { data: myRegister, error: regErr } = await (supabase as any)
+    .from('cash_registers')
+    .select('id, name')
+    .eq('status', 'open')
+    .eq('opened_by', user.id)
+    .limit(1)
+    .maybeSingle()
+
+  if (regErr) {
+    console.error('Error checking open register:', regErr)
+    return { error: 'Error al verificar la caja activa' }
+  }
+
+  if (!myRegister) {
+    return { error: 'Debes abrir tu caja antes de realizar ventas.' }
+  }
+
+  const authorizedRegisterId: string = (myRegister as any).id
+
   try {
     // Sanitizar items para que coincidan exactamente con la estructura de sale_item_input
     // que espera PostgreSQL: (variant_id, quantity, unit_price, discount_amount, discount_type)
@@ -54,7 +75,7 @@ export async function createSale(payload: CreateSalePayload) {
 
     // Realizar la llamada RPC a create_sale con los parámetros sanitizados
     const { data: saleId, error } = await (supabase as any).rpc('create_sale', {
-      p_register_id: payload.register_id,
+      p_register_id: authorizedRegisterId, // server-authoritative, never trusts client
       p_created_by: user.id,
       p_customer_id: payload.customer_id || null,
       p_items: sanitizedItems as any,

@@ -25,7 +25,7 @@ export default async function VentaDetallePage({ params }: PageProps) {
   }
 
   // Fetch full sale with all related data
-  const { data: sale, error } = await (supabase as any)
+  let saleQuery = (supabase as any)
     .from('sales')
     .select(`
       id,
@@ -43,6 +43,7 @@ export default async function VentaDetallePage({ params }: PageProps) {
       notes,
       created_at,
       completed_at,
+      created_by,
       customer:customers(id, name, phone, email),
       register:cash_registers(id, name),
       cajero:profiles!sales_created_by_fkey(id, full_name),
@@ -70,7 +71,13 @@ export default async function VentaDetallePage({ params }: PageProps) {
       payments(id, method, amount, reference)
     `)
     .eq('id', id)
-    .single()
+
+  // Non-admin users can only see their own sales
+  if (!isAdmin && user) {
+    saleQuery = saleQuery.eq('created_by', user.id)
+  }
+
+  const { data: sale, error } = await saleQuery.single()
 
   if (error || !sale) {
     notFound()

@@ -11,7 +11,11 @@ import { openRegister, closeRegister, getCurrentShiftSummary } from '@/app/actio
 import { formatCurrency } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 
-export function CashRegisterActions({ register }: { register: any }) {
+export function CashRegisterActions({ register, isAdmin = false, currentUserId }: {
+  register: any
+  isAdmin?: boolean
+  currentUserId?: string
+}) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -20,6 +24,11 @@ export function CashRegisterActions({ register }: { register: any }) {
   const [countedCash, setCountedCash] = useState<number | ''>('')
   
   const isOpen = register.status === 'open'
+
+  // A cashier can only act on their OWN open register.
+  // Admin can act on any register.
+  const isOwnedByCurrentUser = currentUserId && register.opened_by === currentUserId
+  const canAct = isAdmin || !isOpen || isOwnedByCurrentUser
 
   // Fetch expected cash when opening the close dialog
   useEffect(() => {
@@ -69,12 +78,18 @@ export function CashRegisterActions({ register }: { register: any }) {
     : null
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={canAct ? setOpen : undefined}>
       <DialogTrigger
         render={
           isOpen ? (
-            <Button variant="destructive" size="sm" className="w-full">
-              <Lock className="mr-2 h-4 w-4" />Cerrar Caja
+            <Button
+              variant={canAct ? 'destructive' : 'outline'}
+              size="sm"
+              className="w-full"
+              disabled={!canAct}
+              title={!canAct ? 'Esta caja está abierta por otro usuario' : undefined}
+            >
+              <Lock className="mr-2 h-4 w-4" />{canAct ? 'Cerrar Caja' : 'Caja de otro usuario'}
             </Button>
           ) : (
             <Button variant="default" size="sm" className="w-full">

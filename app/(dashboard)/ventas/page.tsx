@@ -12,19 +12,17 @@ export default async function VentasPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  // Look for an OPEN cash register. Prefer one assigned to this user, fall back to any open one.
-  const { data: registers } = await (supabase as any)
+  // Look for an OPEN cash register belonging ONLY to the current user.
+  const { data: myRegisterRow } = await (supabase as any)
     .from('cash_registers')
     .select('id, name, status, opened_by')
     .eq('status', 'open')
+    .eq('opened_by', user.id)
     .order('opened_at', { ascending: false })
-    .limit(5)
+    .limit(1)
+    .maybeSingle()
 
-  const openRegisters = (registers as any[]) || []
-
-  // Prefer the register opened by the current user
-  const myRegister = openRegisters.find((r: any) => r.opened_by === user.id)
-  const activeRegister = myRegister || openRegisters[0]
+  const activeRegister = myRegisterRow || null
 
   if (!activeRegister) {
     return (
@@ -33,7 +31,7 @@ export default async function VentasPage() {
           <Lock className="h-4 w-4" />
           <AlertTitle className="font-display font-black uppercase">Caja Sin Apertura</AlertTitle>
           <AlertDescription>
-            No hay ninguna caja registradora abierta. Debes abrir una caja antes de poder procesar ventas.
+            Debes abrir tu caja antes de realizar ventas. Ve a Control de Caja y abre tu caja asignada.
           </AlertDescription>
         </Alert>
         <div className="flex gap-3">

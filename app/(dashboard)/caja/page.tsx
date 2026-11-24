@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { DollarSign, CreditCard, Lock, Unlock, TrendingUp, FileText } from 'lucide-react'
+
+export const dynamic = 'force-dynamic'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -20,12 +22,54 @@ export default async function CajaPage({ searchParams }: PageProps) {
   const supabase = await createClient()
   const { startDate, endDate } = await searchParams
 
-  // Build movements query with optional date filter
-  // Nicaragua es UTC-6 fijo todo el año, sin horario de verano
+  // Identify current user and role
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data: profile } = await (supabase as any)
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const isAdmin = (profile as any)?.role === 'admin'
+
+  // For non-admin cashiers: only show data from their CURRENTLY OPEN register (active shift).
+  // If they have no open register right now → show no data at all.
+  // Admin → sees all registers and all movements.
+  let myOpenRegister: { id: string; opened_at: string } | null = null
+  if (!isAdmin) {
+    const { data: openReg } = await (supabase as any)
+      .from('cash_registers')
+      .select('id, opened_at')
+      .eq('status', 'open')
+      .eq('opened_by', user.id)
+      .limit(1)
+      .maybeSingle()
+    myOpenRegister = openReg ?? null
+  }
+
+  // Build movements query:
+  //   Admin  → all movements, optionally date-filtered
+  //   Cajero → only movements of their current open register, from opened_at onwards
+  //            (date filter still applies on top if provided)
+  //   Cajero with no open register → zero results
   let movQuery = (supabase as any)
     .from('cash_movements')
     .select('*, register:cash_registers(name)')
 
+  if (!isAdmin) {
+    if (myOpenRegister) {
+      movQuery = movQuery
+        .eq('register_id', myOpenRegister.id)
+        .gte('created_at', myOpenRegister.opened_at)   // only current session
+    } else {
+      // No open register → return nothing
+      movQuery = movQuery.eq('register_id', '00000000-0000-0000-0000-000000000000')
+    }
+  }
+
+  // Nicaragua es UTC-6 fijo todo el año, sin horario de verano
   if (startDate) {
     movQuery = movQuery.gte('created_at', `${startDate}T00:00:00-06:00`)
   }
@@ -33,8 +77,18 @@ export default async function CajaPage({ searchParams }: PageProps) {
     movQuery = movQuery.lte('created_at', `${endDate}T23:59:59-06:00`)
   }
 
+  // Build registers list:
+  //   Admin  → all registers
+  //   Cajero → their register (open or closed, identified by opened_by = user.id)
+  //            so they always have the "Abrir Caja" button available.
+  //            If they've never opened any register, show all closed ones so they can pick one.
+  let regQuery = (supabase as any).from('cash_registers').select('*').order('name')
+  if (!isAdmin) {
+    regQuery = regQuery.eq('opened_by', user.id)
+  }
+
   const [{ data: regRows }, { data: movRows }] = await Promise.all([
-    (supabase as any).from('cash_registers').select('*').order('name'),
+    regQuery,
     movQuery.order('created_at', { ascending: false }).limit(500),
   ])
 
@@ -97,12 +151,12 @@ export default async function CajaPage({ searchParams }: PageProps) {
                   Abierta: {new Date(reg.opened_at).toLocaleString('es-NI', { timeZone: 'America/Managua' })}
                 </p>
               )}
-              {reg.initial_amount != null && (
+              {reg.status === 'open' && reg.initial_amount != null && (
                 <p>Fondo Inicial: <span className="font-medium">{formatCurrency(reg.initial_amount)}</span></p>
               )}
             </CardContent>
             <CardFooter>
-              <CashRegisterActions register={reg} />
+              <CashRegisterActions register={reg} isAdmin={isAdmin} currentUserId={user.id} />
             </CardFooter>
           </Card>
         ))}

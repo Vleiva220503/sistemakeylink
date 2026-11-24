@@ -41,9 +41,17 @@ export default async function HistorialVentasPage({ searchParams }: PageProps) {
     isAdmin = (profile as any)?.role === 'admin'
   }
 
-  // Build base query filtered to the selected month
+  // Build base query filtered to the selected month (+ by user if cashier)
   function buildQuery(q: ReturnType<typeof supabase.from>) {
-    return (q as any).gte('created_at', startISO).lte('created_at', endISO)
+    let base = (q as any).gte('created_at', startISO).lte('created_at', endISO)
+    if (!isAdmin && user) base = base.eq('created_by', user.id)
+    return base
+  }
+
+  // For prev-month queries (not date-parameterized through buildQuery)
+  function withUserFilter(q: any) {
+    if (!isAdmin && user) return q.eq('created_by', user.id)
+    return q
   }
 
   // 1. Total count for pagination
@@ -83,20 +91,24 @@ export default async function HistorialVentasPage({ searchParams }: PageProps) {
   // 4. Prev month KPIs (for comparison)
   const { year: py, month: pm } = getPrevMonth(year, month)
   const { startISO: prevStart, endISO: prevEnd } = getMonthRange(py, pm)
-  const { data: prevKpiRows } = await (supabase.from('sales') as any)
-    .select('status, total')
-    .gte('created_at', prevStart)
-    .lte('created_at', prevEnd)
+  const { data: prevKpiRows } = await withUserFilter(
+    (supabase.from('sales') as any)
+      .select('status, total')
+      .gte('created_at', prevStart)
+      .lte('created_at', prevEnd)
+  )
   const prevKpiSales = (prevKpiRows as any[]) || []
   const prevRevenue = prevKpiSales
     .filter((s: any) => s.status === 'completed')
     .reduce((sum: number, s: any) => sum + Number(s.total), 0)
 
   // 5. Prev month full sales (for WeeklyBreakdown)
-  const { data: prevSalesRows } = await (supabase.from('sales') as any)
-    .select('created_at, total, status')
-    .gte('created_at', prevStart)
-    .lte('created_at', prevEnd)
+  const { data: prevSalesRows } = await withUserFilter(
+    (supabase.from('sales') as any)
+      .select('created_at, total, status')
+      .gte('created_at', prevStart)
+      .lte('created_at', prevEnd)
+  )
   const prevSales = (prevSalesRows as any[]) || []
 
   // 6. Current month full sales (for WeeklyBreakdown — reuse kpiRows but need created_at)

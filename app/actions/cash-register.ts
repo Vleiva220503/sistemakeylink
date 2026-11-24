@@ -125,10 +125,42 @@ export async function openRegister(registerId: string, initialAmount: number) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'No autorizado' }
 
-  // Check if any register is already open for this user? Optional, but good practice.
-  // The schema allows a user to open multiple, so we'll just check this one.
-  const { data: register } = await supabase.from('cash_registers').select('status').eq('id', registerId).single()
-  if (register?.status === 'open') return { error: 'La caja ya está abierta' }
+  // 1. Check that THIS register is closed before opening it
+  const { data: register } = await supabase
+    .from('cash_registers')
+    .select('status, name, opened_by, opened_at')
+    .eq('id', registerId)
+    .single()
+
+  if (register?.status === 'open') {
+    if (register.opened_by === user.id) {
+      return { error: 'Ya tienes una caja abierta. Ciérrala antes de abrir otra.' }
+    }
+    // Another user has it open — fetch their display name
+    const { data: opener } = await supabase
+      .from('profiles')
+      .select('full_name, email')
+      .eq('id', register.opened_by)
+      .single()
+    const openerName = (opener as any)?.full_name || (opener as any)?.email || 'otro usuario'
+    const openedAt = register.opened_at
+      ? new Date(register.opened_at).toLocaleString('es-NI', { timeZone: 'America/Managua' })
+      : ''
+    return { error: `La caja ${register.name} ya está abierta por ${openerName}${openedAt ? ` desde ${openedAt}` : ''}.` }
+  }
+
+  // 2. Check if this user already has another register open (unique-open-per-user rule)
+  const { data: myOpen } = await supabase
+    .from('cash_registers')
+    .select('name')
+    .eq('status', 'open')
+    .eq('opened_by', user.id)
+    .limit(1)
+    .maybeSingle()
+
+  if (myOpen) {
+    return { error: `Ya tienes una caja abierta (${(myOpen as any).name}). Ciérrala antes de abrir otra.` }
+  }
 
   const { error } = await supabase
     .from('cash_registers')
@@ -147,7 +179,13 @@ export async function openRegister(registerId: string, initialAmount: number) {
     } as any)
     .eq('id', registerId)
 
-  if (error) return { error: 'Error al abrir la caja' }
+  if (error) {
+    // Postgres unique-index violation: one_open_register_per_user
+    if (error.code === '23505') {
+      return { error: 'Ya tienes una caja abierta. Ciérrala antes de abrir otra.' }
+    }
+    return { error: 'Error al abrir la caja' }
+  }
   revalidatePath('/caja')
   return { success: true }
 }
@@ -157,19 +195,33 @@ export async function closeRegister(registerId: string, countedCash: number, exp
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'No autorizado' }
 
+  // 0. Permission check: only the opener or an admin can close
+  const { data: register } = await supabase
+    .from('cash_registers')
+    .select('opened_at, opened_by, initial_amount, status')
+    .eq('id', registerId)
+    .single()
+
+  if (!register) return { error: 'Caja no encontrada' }
+  if (register.status !== 'open') return { error: 'La caja no está abierta' }
+
+  // Check role
+  const { data: profile } = await (supabase as any)
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const isAdmin = (profile as any)?.role === 'admin'
+  if (!isAdmin && register.opened_by !== user.id) {
+    return { error: 'No autorizado. Solo puedes cerrar tu propia caja.' }
+  }
+
   // 1. Get shift summary to save it in history
   const summaryRes = await getCurrentShiftSummary(registerId)
   if (summaryRes.error || !summaryRes.data) {
     return { error: summaryRes.error || 'No se pudo obtener el resumen del turno' }
   }
-
-  const { data: register } = await supabase
-    .from('cash_registers')
-    .select('opened_at, opened_by, initial_amount')
-    .eq('id', registerId)
-    .single()
-
-  if (!register) return { error: 'Caja no encontrada' }
 
   const difference = countedCash - expectedCash
   const closedAt = new Date().toISOString()
