@@ -1,8 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { DollarSign, CreditCard, Lock, Unlock, TrendingUp, FileText } from 'lucide-react'
-
-export const dynamic = 'force-dynamic'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -10,6 +8,8 @@ import { formatCurrency } from '@/lib/utils'
 import { CashRegisterActions } from './cash-register-actions'
 import { getCurrentShiftSummary } from '@/app/actions/cash-register'
 import { MovementsClient } from './movements-client'
+
+export const dynamic = 'force-dynamic'
 
 interface PageProps {
   searchParams: Promise<{
@@ -34,14 +34,13 @@ export default async function CajaPage({ searchParams }: PageProps) {
 
   const isAdmin = (profile as any)?.role === 'admin'
 
-  // For non-admin cashiers: only show data from their CURRENTLY OPEN register (active shift).
-  // If they have no open register right now → show no data at all.
-  // Admin → sees all registers and all movements.
-  let myOpenRegister: { id: string; opened_at: string } | null = null
+  // Find the cashier's currently open register (used for movements filter and UI hint).
+  // Admin has no "my register" concept — they see everything.
+  let myOpenRegister: { id: string; opened_at: string; name: string } | null = null
   if (!isAdmin) {
     const { data: openReg } = await (supabase as any)
       .from('cash_registers')
-      .select('id, opened_at')
+      .select('id, opened_at, name')
       .eq('status', 'open')
       .eq('opened_by', user.id)
       .limit(1)
@@ -52,7 +51,6 @@ export default async function CajaPage({ searchParams }: PageProps) {
   // Build movements query:
   //   Admin  → all movements, optionally date-filtered
   //   Cajero → only movements of their current open register, from opened_at onwards
-  //            (date filter still applies on top if provided)
   //   Cajero with no open register → zero results
   let movQuery = (supabase as any)
     .from('cash_movements')
@@ -78,14 +76,11 @@ export default async function CajaPage({ searchParams }: PageProps) {
   }
 
   // Build registers list:
-  //   Admin  → all registers
-  //   Cajero → their register (open or closed, identified by opened_by = user.id)
-  //            so they always have the "Abrir Caja" button available.
-  //            If they've never opened any register, show all closed ones so they can pick one.
-  let regQuery = (supabase as any).from('cash_registers').select('*').order('name')
-  if (!isAdmin) {
-    regQuery = regQuery.eq('opened_by', user.id)
-  }
+  //   Admin  → all registers (no filter beyond RLS)
+  //   Cajero → ALL registers visible to them via RLS (cash_registers_select: is_active_user())
+  //            so they can always find a closed register to open.
+  //            The button logic (in CashRegisterActions) controls what they can do.
+  const regQuery = (supabase as any).from('cash_registers').select('*').order('name')
 
   const [{ data: regRows }, { data: movRows }] = await Promise.all([
     regQuery,
@@ -94,7 +89,6 @@ export default async function CajaPage({ searchParams }: PageProps) {
 
   const registers = (regRows as any[]) || []
   const movements = (movRows as any[]) || []
-
   // Fetch summaries for all open registers (always reflects the full current shift — no date filter)
   const openRegisters = registers.filter(r => r.status === 'open')
   const shiftSummaries = await Promise.all(openRegisters.map(async (reg) => {
@@ -156,7 +150,12 @@ export default async function CajaPage({ searchParams }: PageProps) {
               )}
             </CardContent>
             <CardFooter>
-              <CashRegisterActions register={reg} isAdmin={isAdmin} currentUserId={user.id} />
+              <CashRegisterActions
+                register={reg}
+                isAdmin={isAdmin}
+                currentUserId={user.id}
+                myOpenRegisterName={myOpenRegister?.name ?? null}
+              />
             </CardFooter>
           </Card>
         ))}

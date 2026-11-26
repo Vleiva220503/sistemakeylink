@@ -125,6 +125,15 @@ export async function openRegister(registerId: string, initialAmount: number) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'No autorizado' }
 
+  // 0. Verify the user is active
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, is_active')
+    .eq('id', user.id)
+    .single()
+
+  if (!(profile as any)?.is_active) return { error: 'Tu cuenta no está activa.' }
+
   // 1. Check that THIS register is closed before opening it
   const { data: register } = await supabase
     .from('cash_registers')
